@@ -2,6 +2,13 @@ if ARCH_KIRKWOOD
 
 menu "Marvell Kirkwood Implementations"
 
+config MACH_KIRKWOOD_DT
+	bool "Generic kirkwood board (FDT support)"
+	select USE_OF
+	help
+	  Support for generic Marvell Kirkwood boards using
+	  Flattened Device Tree
+
 config MACH_DB88F6281_BP
 	bool "Marvell DB-88F6281-BP Development Board"
 	help

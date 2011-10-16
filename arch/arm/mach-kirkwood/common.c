@@ -67,7 +67,6 @@ void __init kirkwood_map_io(void)
  */
 unsigned int kirkwood_clk_ctrl = CGC_DUNIT | CGC_RESERVED;
 
-
 /*****************************************************************************
  * EHCI0
  ****************************************************************************/
@@ -446,7 +445,7 @@ static void __init kirkwood_l2_init(void)
 #endif
 }
 
-void __init kirkwood_init(void)
+void __init kirkwood_init_dt(void)
 {
 	printk(KERN_INFO "Kirkwood: %s, TCLK=%d.\n",
 		kirkwood_id(), kirkwood_tclk);
@@ -466,16 +465,21 @@ void __init kirkwood_init(void)
 	kirkwood_l2_init();
 #endif
 
+#ifdef CONFIG_KEXEC 
+	kexec_reinit = kirkwood_enable_pcie;
+#endif
+}
+
+void __init kirkwood_init(void)
+{
+	kirkwood_init_dt();
+
 	/* internal devices that every board has */
 	kirkwood_rtc_init();
 	kirkwood_wdt_init();
 	kirkwood_xor0_init();
 	kirkwood_xor1_init();
 	kirkwood_crypto_init();
-
-#ifdef CONFIG_KEXEC 
-	kexec_reinit = kirkwood_enable_pcie;
-#endif
 }
 
 static int __init kirkwood_clock_gate(void)
