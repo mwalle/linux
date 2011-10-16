@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/gfp.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
 
 
 #define RTC_TIME_REG_OFFS	0
@@ -294,11 +295,19 @@ static int __exit mv_rtc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id rtc_mv_dt_ids[] __devinitdata = {
+	{ .compatible = "marvell,orion5x-rtc", },
+	{ .compatible = "marvell,kirkwood-rtc", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, rtc_mv_dt_ids);
+
 static struct platform_driver mv_rtc_driver = {
 	.remove		= __exit_p(mv_rtc_remove),
 	.driver		= {
 		.name	= "rtc-mv",
 		.owner	= THIS_MODULE,
+		.of_match_table = rtc_mv_dt_ids,
 	},
 };
 
