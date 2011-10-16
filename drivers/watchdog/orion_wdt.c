@@ -22,6 +22,8 @@
 #include <linux/uaccess.h>
 #include <linux/io.h>
 #include <linux/spinlock.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 #include <mach/bridge-regs.h>
 #include <plat/orion_wdt.h>
 
@@ -240,6 +242,17 @@ static int __devinit orion_wdt_probe(struct platform_device *pdev)
 
 	if (pdata) {
 		wdt_tclk = pdata->tclk;
+	} else if (pdev->dev.of_node) {
+		const __be32 *val;
+		int len;
+		val = of_get_property(pdev->dev.of_node,
+				"clock-frequency", &len);
+		if (val && len >= sizeof(__be32)) {
+			wdt_tclk = be32_to_cpup(val);
+		} else {
+			dev_err(&pdev->dev, "No 'clock-frequency' property\n");
+			return -ENODEV;
+		}
 	} else {
 		printk(KERN_ERR "Orion Watchdog misses platform data\n");
 		return -ENODEV;
@@ -284,6 +297,14 @@ static void orion_wdt_shutdown(struct platform_device *pdev)
 		orion_wdt_disable();
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id orion_wdt_dt_ids[] __devinitdata = {
+	{ .compatible = "marvell,orion-wdt" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, orion_wdt_dt_ids);
+#endif
+
 static struct platform_driver orion_wdt_driver = {
 	.probe		= orion_wdt_probe,
 	.remove		= __devexit_p(orion_wdt_remove),
@@ -291,6 +312,7 @@ static struct platform_driver orion_wdt_driver = {
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= "orion_wdt",
+		.of_match_table = of_match_ptr(orion_wdt_dt_ids),
 	},
 };
 
