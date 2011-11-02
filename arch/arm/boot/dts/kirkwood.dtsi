@@ -1,0 +1,14 @@
+/include/ "skeleton.dtsi"
+
+/ {
+	compatible = "marvell,kirkwood";
+	interrupt-parent = <&intc>;
+
+	intc: interrupt-controller@f1020200 {
+		compatible = "marvell,kirkwood-intc";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		reg = <0xf1020200 0x20>;
+	};
+};
+

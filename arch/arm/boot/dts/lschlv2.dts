@@ -1,0 +1,157 @@
+/dts-v1/;
+
+/* /memreserve/ 0x1c000000 0x04000000; */
+/include/ "kirkwood.dtsi"
+
+/ {
+	model = "Buffalo Linkstation Live (LS-CHLv2)";
+	compatible = "marvell,lschlv2";
+
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x04000000>;
+	};
+
+	serial0: serial@f1012000 {
+		cell-index = <0>;
+		device_type = "serial";
+		compatible = "ns16550a";
+		reg = <0xf1012000 0x20>;
+		reg-shift = <2>;
+		clock-frequency = <166666667>;
+		interrupts = <33>;
+	};
+
+	spi@f1010600 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cell-index = <0>;
+		compatible = "marvell,kirkwood-spi";
+		reg = <0xf1010600 0x28>;
+		clock-frequency = <166666667>;
+
+		m25p40@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "m25p40";
+			reg = <0>;
+			spi-max-frequency = <25000000>;
+			mode = <0>;
+
+			partition@0 {
+				reg = <0x0 0x60000>;
+				label = "uboot";
+				read-only;
+			};
+
+			partition@60000 {
+				reg = <0x60000 0x10000>;
+				label = "dtb";
+				read-only;
+			};
+
+			partition@70000 {
+				reg = <0x70000 0x10000>;
+				label = "uboot_env";
+			};
+		};
+	};
+
+	rtc@f1010300 {
+		compatible = "marvell,kirkwood-rtc";
+		reg = <0xf1010300 0x18>;
+		interrupts = <53>;
+	};
+
+	ehci@f1050000 {
+		compatible = "marvell,kirkwood-ehci";
+		reg = <0xf1050000 0x1000>;
+		interrupts = <19>;
+		phy-version = "orion";
+	};
+
+	wdt {
+		compatible = "marvell,kirkwood-wdt";
+		clock-frequency = <166666667>;
+	};
+
+	crypto@f1030000 {
+		compatible = "marvell,kirkwood-crypto";
+		reg = <0xf1030000 0x10000
+		       0xf5000000 0x800>;
+		interrupts = <22>;
+	};
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "marvell,kirkwood-mdio";
+		phy0: ethernet-phy@8 {
+			compatible = "marvell,88e1118";
+			interrupts = <47>;
+			reg = <8>;
+		};
+	};
+
+	ethernet-group@f1076000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0xf1076000 0x2000>;
+		compatible = "marvell,kirkwood-eth-group";
+		ethernet@1 {
+			compatible = "marvell,kirkwood-eth";
+			reg = <1>;
+			interrupts = <15>;
+			phy = <&phy0>;
+			local-mac-address = [ 02 00 00 00 00 01 ];
+		};
+	};
+
+	mmc@f1090000 {
+		reg = <0xf1090000 0x2000>;
+		compatible = "marvell,kirkwood-sdio";
+		interrupts = <28>;
+		//card-detect = <&gpio0>;
+		//write-protect = <&gpio1>;
+	};
+
+	i2c@f1011000 {
+		compatible = "marvell,kirkwood-i2c";
+		reg = <0xf1011000 0x100>;
+		interrupts = <29>;
+		freq-m = <8>;
+		freq-n = <3>;
+		timeout_ms = <1000>;
+	};
+
+	sata@f1080000 {
+		compatible = "marvell,kirkwood-sata";
+		reg = <0xf1080000 0x5000>;
+		interrupts = <21>;
+		nr-ports = <1>;
+	};
+
+	mpp@f1010000 {
+		reg = <0xf1010000 0x34>;
+		compatible = "marvell,kirkwood-mpp";
+		gpio-conf = <10 0   /* HDD Power Enable */
+		             11 0   /* USB Vbus Enable */
+		             18 0   /* FAN High Enable# */
+		             19 0   /* FAN Low Enable# */
+		             36 0   /* Function Blue LED */
+		             37 0   /* Alarm LED */
+		             38 0   /* Info LED */
+		             39 0   /* Power LED */
+		             40 0   /* Fan Lock */
+		             41 0   /* Function Button */
+		             42 0   /* Power Switch */
+		             43 0   /* Power Auto Switch */
+		             48 0>; /* Function Red LED */
+	};
+
+	gpio@f1010100 {
+		reg = <0xf1010100 0x60>;
+		compatible = "marvell,kirkwood-gpio";
+		interrupts = <35 36 37 38 39 40 41>;
+	};
+};
