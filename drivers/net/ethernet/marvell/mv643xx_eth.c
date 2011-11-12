@@ -57,6 +57,10 @@
 #include <linux/types.h>
 #include <linux/inet_lro.h>
 #include <linux/slab.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_net.h>
+#include <linux/of_irq.h>
 #include <asm/system.h>
 
 static char mv643xx_eth_driver_name[] = "mv643xx_eth";
@@ -2588,14 +2592,119 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *msp)
 	}
 }
 
+/* from arch/powerpc/sysdev/mv64x60_dev.c */
+static int __init mv64x60_eth_device_setup(struct device_node *np, int id,
+					   struct platform_device *shared_pdev)
+{
+	struct resource r[1];
+	struct mv643xx_eth_platform_data pdata;
+	struct platform_device *pdev;
+	struct device_node *phy;
+	const u8 *mac_addr;
+	const int *prop;
+	const phandle *ph;
+	int err;
+
+	memset(r, 0, sizeof(r));
+	of_irq_to_resource(np, 0, &r[0]);
+
+	memset(&pdata, 0, sizeof(pdata));
+
+	pdata.shared = shared_pdev;
+
+	prop = of_get_property(np, "reg", NULL);
+	if (!prop)
+		return -ENODEV;
+	pdata.port_number = be32_to_cpup(prop);
+
+	mac_addr = of_get_mac_address(np);
+	if (mac_addr)
+		memcpy(pdata.mac_addr, mac_addr, 6);
+
+	prop = of_get_property(np, "speed", NULL);
+	if (prop)
+		pdata.speed = be32_to_cpup(prop);
+
+	prop = of_get_property(np, "tx_queue_size", NULL);
+	if (prop)
+		pdata.tx_queue_size = be32_to_cpup(prop);
+
+	prop = of_get_property(np, "rx_queue_size", NULL);
+	if (prop)
+		pdata.rx_queue_size = be32_to_cpup(prop);
+
+	prop = of_get_property(np, "tx_sram_addr", NULL);
+	if (prop)
+		pdata.tx_sram_addr = be32_to_cpup(prop);
+
+	prop = of_get_property(np, "tx_sram_size", NULL);
+	if (prop)
+		pdata.tx_sram_size = be32_to_cpup(prop);
+
+	prop = of_get_property(np, "rx_sram_addr", NULL);
+	if (prop)
+		pdata.rx_sram_addr = be32_to_cpup(prop);
+
+	prop = of_get_property(np, "rx_sram_size", NULL);
+	if (prop)
+		pdata.rx_sram_size = be32_to_cpup(prop);
+
+	ph = of_get_property(np, "phy", NULL);
+	if (!ph)
+		return -ENODEV;
+
+	phy = of_find_node_by_phandle(be32_to_cpup(ph));
+	if (phy == NULL)
+		return -ENODEV;
+
+	prop = of_get_property(phy, "reg", NULL);
+	if (prop)
+		pdata.phy_addr = MV643XX_ETH_PHY_ADDR(be32_to_cpup(prop));
+
+	of_node_put(phy);
+
+	pdev = platform_device_alloc(MV643XX_ETH_NAME, id);
+	if (!pdev)
+		return -ENOMEM;
+
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	err = platform_device_add_resources(pdev, r, 1);
+	if (err)
+		goto error;
+
+	err = platform_device_add_data(pdev, &pdata, sizeof(pdata));
+	if (err)
+		goto error;
+
+	err = platform_device_add(pdev);
+	if (err)
+		goto error;
+
+	return 0;
+
+error:
+	platform_device_put(pdev);
+	return err;
+}
+
+static const struct of_device_id mv643xx_dt_ids[] = {
+	{
+		.compatible = "marvell,kirkwood-eth",
+	},
+	{},
+};
+
 static int mv643xx_eth_shared_probe(struct platform_device *pdev)
 {
 	static int mv643xx_eth_version_printed;
+	struct device_node *np = pdev->dev.of_node, *np2;
 	struct mv643xx_eth_shared_platform_data *pd = pdev->dev.platform_data;
 	struct mv643xx_eth_shared_private *msp;
 	const struct mbus_dram_target_info *dram;
 	struct resource *res;
 	int ret;
+	int err;
+	int id;
 
 	if (!mv643xx_eth_version_printed++)
 		pr_notice("MV-643xx 10/100/1000 ethernet driver version %s\n",
@@ -2673,6 +2782,18 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, msp);
 
+	/* setup ports */
+	id = 0;
+	for_each_child_of_node(np, np2) {
+		if (of_match_node(mv643xx_dt_ids, np2)) {
+			err = mv64x60_eth_device_setup(np2, id++, pdev);
+			if (err)
+				dev_err(&pdev->dev, "failed to initialize "
+						"network device %s: errir %d.\n",
+						np2->full_name, err);
+		}
+	}
+
 	return 0;
 
 out_free_mii_bus:
@@ -2702,12 +2823,21 @@ static int mv643xx_eth_shared_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id mv643xx_shared_dt_ids[] __devinitdata = {
+	{
+		.compatible = "marvell,kirkwood-eth-group",
+	},
+	{},
+};
+MODULE_DEVICE_TABLE(of, mv643xx_shared_dt_ids);
+
 static struct platform_driver mv643xx_eth_shared_driver = {
 	.probe		= mv643xx_eth_shared_probe,
 	.remove		= mv643xx_eth_shared_remove,
 	.driver = {
 		.name	= MV643XX_ETH_SHARED_NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table = mv643xx_shared_dt_ids,
 	},
 };
 
@@ -3005,6 +3135,7 @@ static struct platform_driver mv643xx_eth_driver = {
 	.driver = {
 		.name	= MV643XX_ETH_NAME,
 		.owner	= THIS_MODULE,
+		//.of_match_table = mv643xx_dt_ids,
 	},
 };
 
@@ -3018,7 +3149,6 @@ static int __init mv643xx_eth_init_module(void)
 		if (rc)
 			platform_driver_unregister(&mv643xx_eth_shared_driver);
 	}
-
 	return rc;
 }
 module_init(mv643xx_eth_init_module);
