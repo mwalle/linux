@@ -18,6 +18,9 @@
 #include <linux/mv643xx_i2c.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_i2c.h>
 
 /* Register defines */
 #define	MV64XXX_I2C_REG_SLAVE_ADDR			0x00
@@ -528,7 +531,7 @@ mv64xxx_i2c_probe(struct platform_device *pd)
 	struct mv64xxx_i2c_pdata	*pdata = pd->dev.platform_data;
 	int	rc;
 
-	if ((pd->id != 0) || !pdata)
+	if (((pd->id != 0) || !pdata) && !pd->dev.of_node)
 		return -ENODEV;
 
 	drv_data = kzalloc(sizeof(struct mv64xxx_i2c_data), GFP_KERNEL);
@@ -546,8 +549,38 @@ mv64xxx_i2c_probe(struct platform_device *pd)
 	init_waitqueue_head(&drv_data->waitq);
 	spin_lock_init(&drv_data->lock);
 
-	drv_data->freq_m = pdata->freq_m;
-	drv_data->freq_n = pdata->freq_n;
+	if (pd->dev.of_node) {
+		const __be32 *val;
+		int len;
+		val = of_get_property(pd->dev.of_node, "freq-m", &len);
+		if (val && len >= sizeof(__be32)) {
+			drv_data->freq_m = be32_to_cpup(val);
+		} else {
+			dev_err(&pd->dev, "No 'freq-m' property\n");
+			rc = -ENODEV;
+			goto exit_unmap_regs;
+		}
+		val = of_get_property(pd->dev.of_node, "freq-n", &len);
+		if (val && len >= sizeof(__be32)) {
+			drv_data->freq_n = be32_to_cpup(val);
+		} else {
+			dev_err(&pd->dev, "No 'freq-n' property\n");
+			rc = -ENODEV;
+			goto exit_unmap_regs;
+		}
+		val = of_get_property(pd->dev.of_node, "timeout_ms", &len);
+		if (val && len >= sizeof(__be32)) {
+			drv_data->adapter.timeout = be32_to_cpup(val);
+		} else {
+			dev_err(&pd->dev, "No 'timeout_ms' property\n");
+			rc = -ENODEV;
+			goto exit_unmap_regs;
+		}
+	} else {
+		drv_data->freq_m = pdata->freq_m;
+		drv_data->freq_n = pdata->freq_n;
+		drv_data->adapter.timeout = msecs_to_jiffies(pdata->timeout);
+	}
 	drv_data->irq = platform_get_irq(pd, 0);
 	if (drv_data->irq < 0) {
 		rc = -ENXIO;
@@ -557,8 +590,10 @@ mv64xxx_i2c_probe(struct platform_device *pd)
 	drv_data->adapter.algo = &mv64xxx_i2c_algo;
 	drv_data->adapter.owner = THIS_MODULE;
 	drv_data->adapter.class = I2C_CLASS_HWMON | I2C_CLASS_SPD;
-	drv_data->adapter.timeout = msecs_to_jiffies(pdata->timeout);
 	drv_data->adapter.nr = pd->id;
+#ifdef CONFIG_OF
+	drv_data->adapter.dev.of_node = pd->dev.of_node;
+#endif
 	platform_set_drvdata(pd, drv_data);
 	i2c_set_adapdata(&drv_data->adapter, drv_data);
 
@@ -576,6 +611,8 @@ mv64xxx_i2c_probe(struct platform_device *pd)
 			"mv64xxx: Can't add i2c adapter, rc: %d\n", -rc);
 		goto exit_free_irq;
 	}
+
+	of_i2c_register_devices(&drv_data->adapter);
 
 	return 0;
 
@@ -602,12 +639,21 @@ mv64xxx_i2c_remove(struct platform_device *dev)
 	return rc;
 }
 
+#ifdef CONFIG_OF
+static struct of_device_id mv64xxx_dt_ids[] __devinitdata = {
+	{ .compatible = "marvell,orion-i2c", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, mv64xxx_dt_ids);
+#endif
+
 static struct platform_driver mv64xxx_i2c_driver = {
 	.probe	= mv64xxx_i2c_probe,
 	.remove	= __devexit_p(mv64xxx_i2c_remove),
 	.driver	= {
 		.owner	= THIS_MODULE,
 		.name	= MV64XXX_I2C_CTLR_NAME,
+		.of_match_table = of_match_ptr(mv64xxx_dt_ids),
 	},
 };
 
