@@ -21,6 +21,7 @@
 #include <linux/irq.h>
 #include <linux/gpio.h>
 #include <linux/mmc/host.h>
+#include <linux/of_device.h>
 
 #include <asm/sizes.h>
 #include <asm/unaligned.h>
@@ -887,12 +888,21 @@ static int mvsd_resume(struct platform_device *dev)
 #define mvsd_resume	NULL
 #endif
 
+#ifdef CONFIG_OF
+static struct of_device_id mvsdio_dt_ids[] __devinitdata = {
+	{ .compatible = "marvell,orion-sdio", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, mvsdio_dt_ids);
+#endif
+
 static struct platform_driver mvsd_driver = {
 	.remove		= __exit_p(mvsd_remove),
 	.suspend	= mvsd_suspend,
 	.resume		= mvsd_resume,
 	.driver		= {
 		.name	= DRIVER_NAME,
+		.of_match_table = of_match_ptr(mvsdio_dt_ids),
 	},
 };
 
