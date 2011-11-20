@@ -16,6 +16,8 @@
 #include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
 
 /*
  * GPIO unit register offsets.
@@ -479,3 +481,30 @@ void orion_gpio_irq_handler(int pinoff)
 		generic_handle_irq(irq);
 	}
 }
+
+static int __devinit orion_gpio_probe(struct platform_device *pdev)
+{
+	struct resource *res;
+	struct aa;
+}
+
+static struct of_device_id orion_gpio_of_match[] __devinitdata = {
+	{ .compatible = "marvell,kirkwood-gpio", },
+	{ .compatible = "marvell,orion-gpio", },
+	{ },
+};
+
+static struct platform_driver orion_gpio_driver = {
+	.driver = {
+		.name = "orion-gpio",
+		.owner = THIS_MODULE,
+		.of_match_table = orion_gpio_of_match,
+	},
+	.probe = orion_gpio_probe,
+};
+
+static int __init orion_gpio_register(void)
+{
+	return platform_driver_register(&orion_gpio_driver);
+}
+postcore_initcall(orion_gpio_register);
