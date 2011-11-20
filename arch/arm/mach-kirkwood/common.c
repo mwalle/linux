@@ -535,7 +535,7 @@ static int __init kirkwood_clock_gate(void)
 
 	return 0;
 }
-late_initcall(kirkwood_clock_gate);
+//late_initcall(kirkwood_clock_gate);
 
 void kirkwood_restart(char mode, const char *cmd)
 {
