@@ -32,6 +32,7 @@
 #include <mach/bridge-regs.h>
 
 #include "common.h"
+#include "mpp.h"
 
 static struct of_device_id kirkwood_dt_match_table[] __initdata = {
 	{ .compatible = "simple-bus", },
@@ -57,6 +58,7 @@ static void __init kirkwood_board_dt_init(void)
 	if (node)
 		irq_domain_add_simple(node, 0);
 
+	kirkwood_dt_mpp_conf();
 	/*
 	 * Finished with the static registrations now; fill in the missing
 	 * devices
