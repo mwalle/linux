@@ -168,6 +168,9 @@ extern const struct dsa_device_ops dsa_netdev_ops;
 /* tag_edsa.c */
 extern const struct dsa_device_ops edsa_netdev_ops;
 
+/* tag_fes.c */
+extern const struct dsa_device_ops fes_netdev_ops;
+
 /* tag_ksz.c */
 extern const struct dsa_device_ops ksz_netdev_ops;
 
