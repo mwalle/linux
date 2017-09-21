@@ -314,6 +314,8 @@ struct dsa_switch_ops {
 	void	(*get_ethtool_stats)(struct dsa_switch *ds,
 				     int port, uint64_t *data);
 	int	(*get_sset_count)(struct dsa_switch *ds);
+	int	(*get_ts_info)(struct dsa_switch *ds, int port,
+			       struct ethtool_ts_info *info);
 
 	/*
 	 * ethtool Wake-on-LAN
@@ -322,12 +324,26 @@ struct dsa_switch_ops {
 			   struct ethtool_wolinfo *w);
 	int	(*set_wol)(struct dsa_switch *ds, int port,
 			   struct ethtool_wolinfo *w);
+	int	(*get)(struct dsa_switch *ds, int port,
+			   struct ethtool_wolinfo *w);
 
 	/*
 	 * Suspend and resume
 	 */
 	int	(*suspend)(struct dsa_switch *ds);
 	int	(*resume)(struct dsa_switch *ds);
+
+	/*
+	 * Hardware timestamping
+	 */
+	int	(*hwtstamp_get)(struct dsa_switch *ds, int port,
+				struct ifreq *ifr);
+	int	(*hwtstamp_set)(struct dsa_switch *ds, int port,
+				struct ifreq *ifr);
+	void	(*rx_timestamp)(struct dsa_switch *ds, int port,
+				struct sk_buff *skb);
+	void	(*tx_timestamp)(struct dsa_switch *ds, int port,
+				struct sk_buff *skb);
 
 	/*
 	 * Port enable/disable

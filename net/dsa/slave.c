@@ -202,6 +202,17 @@ out:
 static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
+	struct dsa_port *dp = p->dp;
+	struct dsa_switch *ds = dp->ds;
+
+	switch (cmd) {
+	case SIOCSHWTSTAMP:
+		if (ds->ops->hwtstamp_set)
+			return ds->ops->hwtstamp_set(ds, dp->index, ifr);
+	case SIOCGHWTSTAMP:
+		if (ds->ops->hwtstamp_get)
+			return ds->ops->hwtstamp_get(ds, dp->index, ifr);
+	}
 
 	if (p->phy != NULL)
 		return phy_mii_ioctl(p->phy, ifr, cmd);
@@ -352,6 +363,7 @@ static inline netdev_tx_t dsa_netpoll_send_skb(struct dsa_slave_priv *p,
 static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
+	struct dsa_switch *ds = p->dp->ds;
 	struct sk_buff *nskb;
 
 	dev->stats.tx_packets++;
@@ -376,6 +388,15 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
 	 * do not modify its EtherType
 	 */
 	nskb->dev = dsa_master_netdev(p);
+
+	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP
+			&& ds->ops->tx_timestamp)) {
+		ds->ops->tx_timestamp(ds, p->dp->index, nskb);
+
+		/* prevent master device from timestamping */
+		skb_shinfo(skb)->tx_flags &= ~SKBTX_HW_TSTAMP;
+	}
+
 	dev_queue_xmit(nskb);
 
 	return NETDEV_TX_OK;
@@ -455,6 +476,18 @@ static u32 dsa_slave_get_link(struct net_device *dev)
 		genphy_update_link(p->phy);
 		return p->phy->link;
 	}
+
+	return -EOPNOTSUPP;
+}
+
+static int dsa_slave_get_ts_info(struct net_device *dev,
+				 struct ethtool_ts_info *info)
+{
+	struct dsa_slave_priv *p = netdev_priv(dev);
+	struct dsa_switch *ds = p->dp->ds;
+
+	if (ds->ops->get_ts_info)
+		return ds->ops->get_ts_info(ds, p->dp->index, info);
 
 	return -EOPNOTSUPP;
 }
@@ -898,6 +931,7 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
 	.get_regs		= dsa_slave_get_regs,
 	.nway_reset		= dsa_slave_nway_reset,
 	.get_link		= dsa_slave_get_link,
+	.get_ts_info		= dsa_slave_get_ts_info,
 	.get_eeprom_len		= dsa_slave_get_eeprom_len,
 	.get_eeprom		= dsa_slave_get_eeprom,
 	.set_eeprom		= dsa_slave_set_eeprom,

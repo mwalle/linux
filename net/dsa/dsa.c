@@ -188,10 +188,28 @@ struct net_device *dsa_dev_to_net_device(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(dsa_dev_to_net_device);
 
+static void dsa_switch_rx_timestamp(struct sk_buff *skb)
+{
+	struct dsa_slave_priv *p = netdev_priv(skb->dev);
+	struct dsa_port *dp;
+	struct dsa_switch *ds;
+
+	if (!p || !p->dp || !p->dp->ds)
+		return;
+
+	dp = p->dp;
+	ds = dp->ds;
+
+	if (unlikely(ds->ops->rx_timestamp))
+		ds->ops->rx_timestamp(ds, dp->index, skb);
+}
+
 static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
 			  struct packet_type *pt, struct net_device *orig_dev)
 {
 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+	struct dsa_port *dp;
+	struct dsa_switch *ds;
 	struct sk_buff *nskb = NULL;
 
 	if (unlikely(dst == NULL)) {
@@ -213,6 +231,8 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
 	skb_push(skb, ETH_HLEN);
 	skb->pkt_type = PACKET_HOST;
 	skb->protocol = eth_type_trans(skb, skb->dev);
+
+	dsa_switch_rx_timestamp(skb);
 
 	skb->dev->stats.rx_packets++;
 	skb->dev->stats.rx_bytes += skb->len;
