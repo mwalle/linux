@@ -208,8 +208,6 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
 			  struct packet_type *pt, struct net_device *orig_dev)
 {
 	struct dsa_switch_tree *dst = dev->dsa_ptr;
-	struct dsa_port *dp;
-	struct dsa_switch *ds;
 	struct sk_buff *nskb = NULL;
 
 	if (unlikely(dst == NULL)) {
