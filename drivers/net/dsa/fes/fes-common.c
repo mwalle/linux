@@ -10,7 +10,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/types.h>
-#include <linux/version.h>
 #include <linux/pci.h>
 #include <linux/ptp_clock_kernel.h>
 #include <linux/ptp_classify.h>
@@ -18,6 +17,7 @@
 #include <net/dsa.h>
 
 #include "fes.h"
+#include "fes-regs.h"
 
 #define FES_DRV_NAME "fes"
 
@@ -76,66 +76,13 @@ static const struct fes_counters_desc fes_counters_desc[] = {
 	{ "early_drop", FES_PORT_EARLY_DROP_L, FES_PORT_EARLY_DROP_H },
 };
 
+#define FES_COUNTERS_COUNT ARRAY_SIZE(fes_counters_desc)
+
 struct fes_chip_data {
 	/* must be first because DSA will cast it to dsa_chip_data */
 	struct dsa_chip_data cd;
 	int phyad[DSA_MAX_PORTS];
 };
-
-struct fes_priv {
-	struct device *dev;
-	struct ptp_clock *ptp_clock;
-	struct ptp_clock_info ptp_clock_info;
-	int phc_index;
-	void __iomem *regs;
-	struct fes_chip_data *cd;
-	struct delayed_work ptp_tx_work;
-	struct sk_buff *ptp_tx_skb;
-	u64 counters[DSA_MAX_PORTS][ARRAY_SIZE(fes_counters_desc)];
-};
-
-static u16 fes_read(struct fes_priv *priv, u32 offset)
-{
-	void __iomem *addr = priv->regs + offset;
-
-	return ioread16(addr);
-}
-
-static void fes_write(struct fes_priv *priv, u32 offset, u16 value)
-{
-	void __iomem *addr = priv->regs + offset;
-
-	iowrite16(value, addr);
-}
-
-static int fes_cmd(struct fes_priv *priv, u32 offset, u16 cmd)
-{
-	int timeout = 10;
-
-	fes_write(priv, offset, cmd);
-	do {
-		if (fes_read(priv, offset) & cmd)
-			break;
-		cpu_relax();
-	} while (timeout-- > 0);
-
-	return (timeout) ? 0 : -EIO;
-}
-
-static u16 fes_port_read(struct fes_priv *priv, int port, u32 offset)
-{
-	return fes_read(priv, FES_PORT_OFFSET(port) + offset);
-}
-
-static void fes_port_write(struct fes_priv *priv, int port, u32 offset, u16 value)
-{
-	fes_write(priv, FES_PORT_OFFSET(port) + offset, value);
-}
-
-static int fes_port_cmd(struct fes_priv *priv, int port, u32 offset, u16 cmd)
-{
-	return fes_cmd(priv, FES_PORT_OFFSET(port) + offset, cmd);
-}
 
 static enum dsa_tag_protocol fes_get_tag_protocol(struct dsa_switch *ds)
 {
@@ -487,7 +434,27 @@ static int fes_hwtstamp_get(struct dsa_switch *ds, int port, struct ifreq *ifr)
 	return -EOPNOTSUPP;
 }
 
-void fes_port_update_counters(struct fes_priv *priv, int port)
+static u64 fes_counter_get(struct fes_priv *priv, int port, int num)
+{
+	if (port >= DSA_MAX_PORTS)
+		return 0;
+	if (num >= FES_COUNTERS_COUNT)
+		return 0;
+
+	return *(priv->counters + port * FES_COUNTERS_COUNT + num);
+}
+
+static void fes_counter_set(struct fes_priv *priv, int port, int num, u64 val)
+{
+	if (port >= DSA_MAX_PORTS)
+		return;
+	if (num >= FES_COUNTERS_COUNT)
+		return;
+
+	*(priv->counters + port * FES_COUNTERS_COUNT + num) = val;
+}
+
+static void fes_port_update_counters(struct fes_priv *priv, int port)
 {
 	int ret;
 	int i;
@@ -498,43 +465,42 @@ void fes_port_update_counters(struct fes_priv *priv, int port)
 	if (ret)
 		return;
 
-	for (i = 0; i < ARRAY_SIZE(fes_counters_desc); i++) {
+	for (i = 0; i < FES_COUNTERS_COUNT; i++) {
 		const struct fes_counters_desc *desc = &fes_counters_desc[i];
 		u32 val;
 		val = fes_port_read(priv, port, desc->reg_high);
 		val <<= 16;
 		val |= fes_port_read(priv, port, desc->reg_low);
-		priv->counters[port][i] += val;
+		val += fes_counter_get(priv, port, i);
+		fes_counter_set(priv, port, i, val);
 	}
 }
 
-void fes_get_strings(struct dsa_switch *ds, int port, u8 *data)
+static void fes_get_strings(struct dsa_switch *ds, int port, u8 *data)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(fes_counters_desc); i++) {
+	for (i = 0; i < FES_COUNTERS_COUNT; i++) {
 		strlcpy(data, fes_counters_desc[i].name, ETH_GSTRING_LEN);
 		data += ETH_GSTRING_LEN;
 	}
 }
 
-void fes_get_ethtool_stats(struct dsa_switch *ds, int port, u64 *data)
+static void fes_get_ethtool_stats(struct dsa_switch *ds, int port, u64 *data)
 {
 	struct fes_priv *priv = ds->priv;
 	int i;
 
 	fes_port_update_counters(priv, port);
 
-	for (i = 0; i < ARRAY_SIZE(fes_counters_desc); i++)
-		*(data++) = priv->counters[port][i];
+	for (i = 0; i < FES_COUNTERS_COUNT; i++)
+		*(data++) = fes_counter_get(priv, port, i);
 }
 
-int fes_get_sset_count(struct dsa_switch *ds)
+static int fes_get_sset_count(struct dsa_switch *ds)
 {
-	return ARRAY_SIZE(fes_counters_desc);
+	return FES_COUNTERS_COUNT;
 }
-
-
 struct fes_fdb_entry {
 	int port;
 	u8 mac[ETH_ALEN];
@@ -600,133 +566,6 @@ static struct dsa_switch_ops fes_switch_ops = {
 	.port_fdb_dump = fes_port_fdb_dump,
 };
 
-static u64 frtc_read(struct fes_priv *priv, u32 offset)
-{
-	void __iomem *addr = priv->regs + FRTC_OFFSET + offset;
-
-	return readq(addr);
-}
-
-static void frtc_write(struct fes_priv *priv, u32 offset, u64 value)
-{
-	void __iomem *addr = priv->regs + FRTC_OFFSET + offset;
-
-	return writeq(value, addr);
-}
-
-static int frtc_cmd(struct fes_priv *priv, u32 offset, u64 cmd)
-{
-	int timeout = 10;
-
-	frtc_write(priv, offset, cmd);
-	do {
-		if (frtc_read(priv, offset) & cmd)
-			break;
-		cpu_relax();
-	} while (timeout-- > 0);
-
-	return (timeout) ? 0 : -EIO;
-}
-
-static int fes_phc_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
-{
-	struct fes_priv *priv = container_of(ptp, struct fes_priv, ptp_clock_info);
-	int ret;
-
-	ret = frtc_cmd(priv, FRTC_TIME_CMD, TIME_CMD_READ_TIME);
-	if (ret)
-		return ret;
-
-	ts->tv_sec = frtc_read(priv, FRTC_CUR_SEC);
-	ts->tv_nsec = frtc_read(priv, FRTC_CUR_NSEC) >> 32;
-
-	return 0;
-}
-
-static int fes_phc_enable(struct ptp_clock_info *ptp,
-			  struct ptp_clock_request *rq, int on)
-{
-	return -EOPNOTSUPP;
-}
-
-static int fes_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
-{
-	struct fes_priv *priv = container_of(ptp, struct fes_priv, ptp_clock_info);
-	struct timespec ts = ns_to_timespec(delta);
-
-	frtc_write(priv, FRTC_ADJUST_NSEC, ts.tv_nsec << 32);
-	frtc_write(priv, FRTC_ADJUST_SEC, ts.tv_sec);
-	return frtc_cmd(priv, FRTC_TIME_CMD, TIME_CMD_ADJUST_TIME);
-}
-
-static int fes_phc_settime(struct ptp_clock_info *ptp, const struct timespec64 *ts)
-{
-	struct fes_priv *priv = container_of(ptp, struct fes_priv, ptp_clock_info);
-	struct timespec orig_ts, delta;
-	int ret;
-
-	ret = fes_phc_gettime(ptp, &orig_ts);
-	if (ret)
-		return ret;
-
-	delta = timespec64_sub(*ts, orig_ts);
-
-	frtc_write(priv, FRTC_ADJUST_NSEC, delta.tv_nsec << 32);
-	frtc_write(priv, FRTC_ADJUST_SEC, delta.tv_sec);
-	return frtc_cmd(priv, FRTC_TIME_CMD, TIME_CMD_ADJUST_TIME);
-}
-
-static int fes_adjust_step(struct fes_priv *priv, u64 subnsec)
-{
-	frtc_write(priv, FRTC_STEP_SIZE, subnsec);
-	return frtc_cmd(priv, FRTC_TIME_CMD, TIME_CMD_ADJUST_STEP);
-}
-
-#define NS_STEP_SIZE 8ULL
-#define INITIAL_SUBNS (NS_STEP_SIZE << 32)
-#define ADJFREQ_SCALING_FACTOR ((1ULL<<32) * NS_STEP_SIZE / 1000000000)
-static int fes_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
-{
-	struct fes_priv *priv = container_of(ptp, struct fes_priv, ptp_clock_info);
-	u64 subnsec = INITIAL_SUBNS + delta * ADJFREQ_SCALING_FACTOR;
-
-	return fes_adjust_step(priv, subnsec);
-}
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
-static int fes_phc_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
-{
-	struct fes_priv *priv = container_of(ptp, struct fes_priv, ptp_clock_info);
-	u64 subnsec;
-
-	s64 delta = (NS_STEP_SIZE << 32) * scaled_ppm;
-	delta = div_s64(delta, 1000000);
-	delta >>= 16;
-
-	subnsec = INITIAL_SUBNS + delta;
-	return fes_adjust_step(priv, subnsec);
-}
-#endif
-
-static struct ptp_clock_info fes_ptp_clock_info = {
-	.owner = THIS_MODULE,
-	.name = "fes",
-	.max_adj = 99999999,
-	.n_alarm = 0,
-	.n_ext_ts = 0,
-	.n_per_out = 0,
-	.n_pins = 0,
-	.pps = 0,
-	.gettime64 = fes_phc_gettime,
-	.settime64 = fes_phc_settime,
-	.adjtime = fes_phc_adjtime,
-	.adjfreq = fes_phc_adjfreq,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
-	.adjfine = fes_phc_adjfine,
-#endif
-	.enable = fes_phc_enable,
-};
-
 static int fes_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret, i;
@@ -736,6 +575,12 @@ static int fes_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
+		return -ENOMEM;
+
+	priv->counters = devm_kcalloc(&pdev->dev,
+				      FES_COUNTERS_COUNT * DSA_MAX_PORTS,
+				      sizeof(u64), GFP_KERNEL);
+	if (!priv->counters)
 		return -ENOMEM;
 
 	ret = pcim_enable_device(pdev);
@@ -778,15 +623,7 @@ static int fes_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	dev_set_drvdata(&pdev->dev, priv);
 
-	priv->ptp_clock_info = fes_ptp_clock_info;
-	priv->ptp_clock = ptp_clock_register(&priv->ptp_clock_info, &pdev->dev);
-	if (IS_ERR(priv->ptp_clock)) {
-		priv->ptp_clock = NULL;
-		dev_err(&pdev->dev, "ptp_clock_register failed\n");
-	} else if (priv->ptp_clock) {
-		dev_info(&pdev->dev, "added PHC\n");
-	}
-	priv->phc_index = ptp_clock_index(priv->ptp_clock);
+	fes_ptp_register(priv);
 
 	return dsa_register_switch(ds);
 }

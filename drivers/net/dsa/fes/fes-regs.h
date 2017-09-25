@@ -1,7 +1,5 @@
-/* base addresses */
-#define FES_OFFSET		0x00000
-#define FES_PORT_OFFSET(i)	(0x10000 * ((i) + 1))
-#define FRTC_OFFSET		0x80000
+#ifndef __FES_REGS_H
+#define __FES_REGS_H
 
 /* switch registers */
 #define FES_ID0					0x0000
@@ -286,5 +284,6 @@
 #define   TIME_CMD_READ_TIME		BIT(2)
 #define   TIME_CMD_ADJUST_TIME_MODE	BIT(3)
 
-#define FES_PHY_OFFSET 0x200000
 #define FES_MDIO_ADDR 0x84
+
+#endif /* __FES_REGS_H */

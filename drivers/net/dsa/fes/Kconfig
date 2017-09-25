@@ -1,0 +1,9 @@
+config NET_DSA_FES
+	tristate "Flexibilis Ethernet Switch support"
+	depends on NET_DSA
+	select NET_DSA_TAG_FES
+	select NET_PTP_CLASSIFY
+	imply PTP_1588_CLOCK
+
+	---help---
+	  This enables support for the Flexibilis Ethernet Switch IP core.
