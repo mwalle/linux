@@ -377,7 +377,7 @@ int spi_nor_write_disable(struct spi_nor *nor)
  *
  * Return: 0 on success, -errno otherwise.
  */
-static int spi_nor_read_sr(struct spi_nor *nor, u8 *sr)
+int spi_nor_read_sr(struct spi_nor *nor, u8 *sr)
 {
 	int ret;
 
@@ -1049,7 +1049,7 @@ static int spi_nor_write_16bit_cr_and_check(struct spi_nor *nor, u8 cr)
  *
  * Return: 0 on success, -errno otherwise.
  */
-static int spi_nor_write_sr_and_check(struct spi_nor *nor, u8 sr1)
+int spi_nor_write_sr_and_check(struct spi_nor *nor, u8 sr1)
 {
 	if (nor->flags & SNOR_F_HAS_16BIT_SR)
 		return spi_nor_write_16bit_sr_and_check(nor, sr1);
@@ -3124,15 +3124,14 @@ static int spi_nor_quad_enable(struct spi_nor *nor)
  * spi_nor_unlock_all() - Unlocks the entire flash memory array.
  * @nor:	pointer to a 'struct spi_nor'.
  *
- * Some SPI NOR flashes are write protected by default after a power-on reset
- * cycle, in order to avoid inadvertent writes during power-up. Backward
- * compatibility imposes to unlock the entire flash memory array at power-up
- * by default.
+ * Return: 0 on success, -errno otherwise.
  */
 static int spi_nor_unlock_all(struct spi_nor *nor)
 {
-	if (nor->flags & SNOR_F_HAS_LOCK)
+	if (nor->flags & SNOR_F_HAS_LOCK) {
+		dev_dbg(nor->dev, "unprotecting entire flash\n");
 		return spi_nor_unlock(&nor->mtd, 0, nor->params->size);
+	}
 
 	return 0;
 }
@@ -3153,10 +3152,23 @@ static int spi_nor_init(struct spi_nor *nor)
 		return err;
 	}
 
-	err = spi_nor_unlock_all(nor);
-	if (err) {
-		dev_dbg(nor->dev, "Failed to unlock the entire flash memory array\n");
-		return err;
+	/*
+	 * Some SPI NOR flashes are write protected by default after a power-on
+	 * reset cycle, in order to avoid inadvertent writes during power-up.
+	 * Backward compatibility imposes to unlock the entire flash memory
+	 * array at power-up by default. Depending on the kernel configuration
+	 * (1) we do nothing, (2) we unlock the entire flash in any case or (3)
+	 * just do it actually powers up write-protected. The latter is
+	 * indicated by SNOR_F_WP_IS_VOLATILE.
+	 */
+	if (IS_ENABLED(CONFIG_MTD_SPI_NOR_WP_DISABLE) ||
+	    (IS_ENABLED(CONFIG_MTD_SPI_NOR_WP_DISABLE_ON_VOLATILE) &&
+	     nor->flags & SNOR_F_WP_IS_VOLATILE)) {
+		err = spi_nor_unlock_all(nor);
+		if (err) {
+			dev_err(nor->dev, "Failed to unlock the entire flash memory array\n");
+			return err;
+		}
 	}
 
 	if (nor->addr_width == 4 &&
@@ -3456,6 +3468,8 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 		nor->flags |= SNOR_F_NO_OP_CHIP_ERASE;
 	if (info->flags & USE_CLSR)
 		nor->flags |= SNOR_F_USE_CLSR;
+	if (info->flags & SPI_NOR_WP_IS_VOLATILE)
+		nor->flags |= SNOR_F_WP_IS_VOLATILE;
 
 	if (info->flags & SPI_NOR_4BIT_BP) {
 		nor->flags |= SNOR_F_HAS_4BIT_BP;
