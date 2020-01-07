@@ -2972,6 +2972,12 @@ static void spi_nor_info_init_params(struct spi_nor *nor)
 	spi_nor_set_erase_type(&map->erase_type[i], info->sector_size,
 			       SPINOR_OP_SE);
 	spi_nor_init_uniform_erase_map(map, erase_mask, params->size);
+
+	/* OTP parameters */
+	nor->params->otp_info.otp_size = info->otp_size;
+	nor->params->otp_info.n_otps = info->n_otps;
+	nor->params->otp_info.otp_start_addr = info->otp_start_addr;
+	nor->params->otp_info.otp_addr_offset = info->otp_addr_offset;
 }
 
 /**
@@ -3377,6 +3383,129 @@ static const struct flash_info *spi_nor_get_flash_info(struct spi_nor *nor,
 	return info;
 }
 
+static loff_t spi_nor_otp_region_start(struct spi_nor *nor, int region)
+{
+	struct spi_nor_otp_info *info = &nor->params->otp_info;
+
+	return info->otp_start_addr + region * info->otp_addr_offset;
+}
+
+static loff_t spi_nor_otp_region_end(struct spi_nor *nor, int region)
+{
+	struct spi_nor_otp_info *info = &nor->params->otp_info;
+
+	return (info->otp_start_addr + region * info->otp_addr_offset
+		+ info->otp_size - 1);
+}
+
+static int spi_nor_otp_info(struct mtd_info *mtd, size_t len, size_t *retlen,
+			    struct otp_info *buf)
+{
+	struct spi_nor *nor = mtd_to_spi_nor(mtd);
+	int locked;
+	int i;
+
+	for (i = 0; i < nor->params->otp_info.n_otps; i++) {
+		buf[i].start = spi_nor_otp_region_start(nor, i);
+		buf[i].length = nor->params->otp_info.otp_size;
+
+		locked = nor->params->otp_ops->is_locked(nor, i);
+		if (locked < 0)
+			return locked;
+
+		buf[i].locked = !!locked;
+	}
+
+	*retlen = nor->params->otp_info.n_otps * sizeof(*buf);
+
+	return 0;
+}
+
+static int spi_nor_otp_addr_to_region(struct spi_nor *nor, loff_t addr)
+{
+	int i;
+
+	for (i = 0; i < nor->params->otp_info.n_otps; i++)
+		if (addr >= spi_nor_otp_region_start(nor, i) &&
+		    addr <= spi_nor_otp_region_end(nor, i))
+			return i;
+
+	return -EINVAL;
+}
+
+static int _spi_nor_otp_read_write(struct mtd_info *mtd, loff_t ofs,
+				   size_t len, size_t *retlen, u_char *buf,
+				   bool is_write)
+{
+	struct spi_nor *nor = mtd_to_spi_nor(mtd);
+	int region;
+	int ret;
+
+	*retlen = 0;
+
+	/* check boundaries */
+	region = spi_nor_otp_addr_to_region(nor, ofs);
+	if (region < 0)
+		return 0;
+
+	if (ofs < spi_nor_otp_region_start(nor, region))
+		return 0;
+
+	if ((ofs + len - 1) > spi_nor_otp_region_end(nor, region))
+		return 0;
+
+	ret = spi_nor_lock_and_prep(nor);
+
+	if (is_write)
+		ret = nor->params->otp_ops->write(nor, ofs, len, buf);
+	else
+		ret = nor->params->otp_ops->read(nor, ofs, len, buf);
+
+	spi_nor_unlock_and_unprep(nor);
+
+	if (ret < 0)
+		return ret;
+
+	*retlen = len;
+	return 0;
+}
+
+static int spi_nor_otp_read(struct mtd_info *mtd, loff_t from, size_t len,
+			    size_t *retlen, u_char *buf)
+{
+	return _spi_nor_otp_read_write(mtd, from, len, retlen, buf, false);
+}
+
+static int spi_nor_otp_write(struct mtd_info *mtd, loff_t to, size_t len,
+			     size_t *retlen, u_char *buf)
+{
+	return _spi_nor_otp_read_write(mtd, to, len, retlen, buf, true);
+}
+
+static int spi_nor_otp_lock(struct mtd_info *mtd, loff_t from, size_t len)
+{
+	struct spi_nor *nor = mtd_to_spi_nor(mtd);
+	int region;
+	int ret;
+
+	region = spi_nor_otp_addr_to_region(nor, from);
+	if (region < 0)
+		return -EINVAL;
+
+	if (len != nor->params->otp_info.otp_size)
+		return -EINVAL;
+
+	ret = spi_nor_lock_and_prep(nor);
+	if (ret)
+		return ret;
+
+	ret = nor->params->otp_ops->lock(nor, region);
+
+	spi_nor_unlock_and_unprep(nor);
+
+	return ret;
+}
+
 int spi_nor_scan(struct spi_nor *nor, const char *name,
 		 const struct spi_nor_hwcaps *hwcaps)
 {
@@ -3454,6 +3583,13 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 		mtd->_lock = spi_nor_lock;
 		mtd->_unlock = spi_nor_unlock;
 		mtd->_is_locked = spi_nor_is_locked;
+	}
+
+	if (nor->params->otp_ops) {
+		mtd->_get_user_prot_info = spi_nor_otp_info;
+		mtd->_read_user_prot_reg = spi_nor_otp_read;
+		mtd->_write_user_prot_reg = spi_nor_otp_write;
+		mtd->_lock_user_prot_reg = spi_nor_otp_lock;
 	}
 
 	if (info->flags & USE_FSR)
