@@ -487,6 +487,8 @@ int spi_nor_sr2_bit7_quad_enable(struct spi_nor *nor);
 int spi_nor_write_sr_and_check(struct spi_nor *nor, u8 sr1);
 int spi_nor_read_sr(struct spi_nor *nor, u8 *sr);
 
+int spi_nor_read_cr(struct spi_nor *nor, u8 *cr);
+int spi_nor_write_16bit_cr_and_check(struct spi_nor *nor, u8 cr);
 int spi_nor_xread_sr(struct spi_nor *nor, u8 *sr);
 ssize_t spi_nor_read_data(struct spi_nor *nor, loff_t from, size_t len,
 			  u8 *buf);

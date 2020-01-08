@@ -62,7 +62,9 @@ static const struct flash_info winbond_parts[] = {
 	},
 	{ "w25q32jwm", INFO(0xef8016, 0, 64 * 1024,  64,
 			    SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
-			    SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB) },
+			    SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB)
+		       OTP_INFO(256, 3, 0x1000, 0x1000)
+	},
 	{ "w25q64jwm", INFO(0xef8017, 0, 64 * 1024, 128,
 			    SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
 			    SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB) },
@@ -131,9 +133,130 @@ static int winbond_set_4byte_addr_mode(struct spi_nor *nor, bool enable)
 	return spi_nor_write_disable(nor);
 }
 
+static int winbond_otp_read(struct spi_nor *nor, loff_t addr, uint64_t len,
+			    u8 *buf)
+{
+	u8 addr_width, read_opcode, read_dummy;
+	enum spi_nor_protocol read_proto;
+	int ret;
+
+	read_opcode = nor->read_opcode;
+	addr_width = nor->addr_width;
+	read_dummy = nor->read_dummy;
+	read_proto = nor->read_proto;
+
+	nor->read_opcode = SPINOR_OP_WB_RSECR;
+	nor->addr_width = 3;
+	nor->read_dummy = 8;
+	nor->read_proto = SNOR_PROTO_1_1_1;
+
+	ret = spi_nor_read_data(nor, addr, len, buf);
+
+	nor->read_opcode = read_opcode;
+	nor->addr_width = addr_width;
+	nor->read_dummy = read_dummy;
+	nor->read_proto = read_proto;
+
+	return ret;
+}
+
+static int winbond_otp_write(struct spi_nor *nor, loff_t addr, uint64_t len,
+			     u8 *buf)
+{
+	u8 addr_width, program_opcode;
+	enum spi_nor_protocol write_proto;
+	int ret;
+
+	program_opcode = nor->program_opcode;
+	addr_width = nor->addr_width;
+	write_proto = nor->write_proto;
+
+	nor->program_opcode = SPINOR_OP_WB_PSECR;
+	nor->addr_width = 3;
+	nor->write_proto = SNOR_PROTO_1_1_1;
+
+	/*
+	 * We only support a write to one single page. For now all winbond
+	 * flashes only have one page per OTP region.
+	 */
+	ret = spi_nor_write_enable(nor);
+	if (ret)
+		goto out;
+
+	ret = spi_nor_write_data(nor, addr, len, buf);
+	if (ret < 0)
+		goto out;
+
+	ret = spi_nor_wait_till_ready(nor);
+
+out:
+	nor->program_opcode = program_opcode;
+	nor->addr_width = addr_width;
+	nor->write_proto = write_proto;
+
+	return ret;
+}
+
+static int _winbond_otp_lock_bit(unsigned int region)
+{
+	static const int lock_bits[] = { SR2_WB_LB1, SR2_WB_LB2, SR2_WB_LB3 };
+
+	if (region >= ARRAY_SIZE(lock_bits))
+		return -EINVAL;
+
+	return lock_bits[region];
+}
+
+static int winbond_otp_lock(struct spi_nor *nor, unsigned int region)
+{
+	int lock_bit;
+	u8 *sr2 = nor->bouncebuf;
+	int ret;
+
+	lock_bit = _winbond_otp_lock_bit(region);
+	if (lock_bit < 0)
+		return lock_bit;
+
+	ret = spi_nor_read_cr(nor, sr2);
+	if (ret)
+		return ret;
+
+	/* check if its already locked */
+	if (*sr2 & lock_bit)
+		return 0;
+
+	return spi_nor_write_16bit_cr_and_check(nor, *sr2 | lock_bit);
+}
+
+static int winbond_otp_is_locked(struct spi_nor *nor, unsigned int region)
+{
+	int lock_bit;
+	u8 *sr2 = nor->bouncebuf;
+	int ret;
+
+	lock_bit = _winbond_otp_lock_bit(region);
+	if (lock_bit < 0)
+		return lock_bit;
+
+	ret = spi_nor_read_cr(nor, sr2);
+	if (ret)
+		return ret;
+
+	return (*sr2 & lock_bit);
+}
+
+static const struct spi_nor_otp_ops winbond_otp_ops = {
+	.read = winbond_otp_read,
+	.write = winbond_otp_write,
+	.lock = winbond_otp_lock,
+	.is_locked = winbond_otp_is_locked,
+};
+
 static void winbond_default_init(struct spi_nor *nor)
 {
 	nor->params->set_4byte_addr_mode = winbond_set_4byte_addr_mode;
+	if (nor->params->otp_info.n_otps)
+		nor->params->otp_ops = &winbond_otp_ops;
 }
 
 static const struct spi_nor_fixups winbond_fixups = {

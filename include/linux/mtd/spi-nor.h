@@ -106,6 +106,20 @@
 #define SPINOR_OP_RD_EVCR      0x65    /* Read EVCR register */
 #define SPINOR_OP_WD_EVCR      0x61    /* Write EVCR register */
 
+/* Used for Winbond flashes only. */
+#define SPINOR_OP_WB_ESECR	0x44	/* Erase Security registers */
+#define SPINOR_OP_WB_PSECR	0x42	/* Program Security registers */
+#define SPINOR_OP_WB_RSECR	0x48	/* Read Security registers */
+
+/*
+ * Warning: LB0 (and thus the security register 0) is used for the SFDP
+ * data on all newer flashes.
+ */
+#define SR2_WB_LB0		BIT(2)	/* Security Register Lock Bit 0 */
+#define SR2_WB_LB1		BIT(3)	/* Security Register Lock Bit 1 */
+#define SR2_WB_LB2		BIT(4)	/* Security Register Lock Bit 2 */
+#define SR2_WB_LB3		BIT(5)	/* Security Register Lock Bit 3 */
+
 /* Status Register bits. */
 #define SR_WIP			BIT(0)	/* Write in progress */
 #define SR_WEL			BIT(1)	/* Write enable latch */
