@@ -19,7 +19,8 @@ static const struct flash_info atmel_parts[] = {
 	{ "at25df641",  INFO(0x1f4800, 0, 64 * 1024, 128, SECT_4K) },
 
 	{ "at25sl321",	INFO(0x1f4216, 0, 64 * 1024, 64,
-			     SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
+			     SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ)
+			     OTP_INFO1(512, 0) },
 
 	{ "at26f004",   INFO(0x1f0400, 0, 64 * 1024,  8, SECT_4K) },
 	{ "at26df081a", INFO(0x1f4501, 0, 64 * 1024, 16, SECT_4K) },
@@ -29,9 +30,19 @@ static const struct flash_info atmel_parts[] = {
 	{ "at45db081d", INFO(0x1f2500, 0, 64 * 1024, 16, SECT_4K) },
 };
 
+static const struct spi_nor_otp_ops atmel_otp_ops = {
+	.read = spi_nor_otp_read_otp_mode,
+	.write = spi_nor_otp_write_otp_mode,
+	.lock = spi_nor_otp_lock_scur,
+	.is_locked = spi_nor_otp_is_locked_scur,
+};
+
 static void atmel_default_init(struct spi_nor *nor)
 {
 	nor->flags |= SNOR_F_HAS_LOCK;
+
+	if (nor->params->otp_info.n_otps)
+		nor->params->otp_ops = &atmel_otp_ops;
 }
 
 static const struct spi_nor_fixups atmel_fixups = {

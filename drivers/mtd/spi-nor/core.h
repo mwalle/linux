@@ -414,6 +414,10 @@ struct flash_info {
 		.otp_start_addr = (_otp_start_addr),			\
 		.otp_addr_offset = (_otp_addr_offset),
 
+#define OTP_INFO1(_otp_size, _otp_start_addr)				\
+		OTP_INFO(_otp_size, 1, _otp_start_addr, 0)
+
+
 /**
  * struct spi_nor_manufacturer - SPI NOR manufacturer object
  * @name: manufacturer name
@@ -463,6 +467,11 @@ ssize_t spi_nor_read_data(struct spi_nor *nor, loff_t from, size_t len,
 			  u8 *buf);
 ssize_t spi_nor_write_data(struct spi_nor *nor, loff_t to, size_t len,
 			   const u8 *buf);
+
+int spi_nor_otp_read_otp_mode(struct spi_nor *nor, loff_t from, uint64_t len, u8 *buf);
+int spi_nor_otp_write_otp_mode(struct spi_nor *nor, loff_t to, uint64_t len, u8 *buf);
+int spi_nor_otp_lock_scur(struct spi_nor *nor, unsigned int region);
+int spi_nor_otp_is_locked_scur(struct spi_nor *nor, unsigned int region);
 
 int spi_nor_hwcaps_read2cmd(u32 hwcaps);
 u8 spi_nor_convert_3to4_read(u8 opcode);

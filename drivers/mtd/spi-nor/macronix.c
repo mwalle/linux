@@ -42,7 +42,8 @@ static const struct flash_info macronix_parts[] = {
 	{ "mx25l1606e",  INFO(0xc22015, 0, 64 * 1024,  32, SECT_4K) },
 	{ "mx25l3205d",  INFO(0xc22016, 0, 64 * 1024,  64, SECT_4K) },
 	{ "mx25l3255e",  INFO(0xc29e16, 0, 64 * 1024,  64, SECT_4K) },
-	{ "mx25l6405d",  INFO(0xc22017, 0, 64 * 1024, 128, SECT_4K) },
+	{ "mx25l6405d",  INFO(0xc22017, 0, 64 * 1024, 128, SECT_4K)
+			 OTP_INFO1(64, 0) },
 	{ "mx25u2033e",  INFO(0xc22532, 0, 64 * 1024,   4, SECT_4K) },
 	{ "mx25u3235f",	 INFO(0xc22536, 0, 64 * 1024,  64,
 			      SECT_4K | SPI_NOR_DUAL_READ |
@@ -92,10 +93,20 @@ static const struct flash_info macronix_parts[] = {
 			      SPI_NOR_QUAD_READ | SPI_NOR_4B_OPCODES) },
 };
 
+static const struct spi_nor_otp_ops macronix_otp_ops = {
+	.read = spi_nor_otp_read_otp_mode,
+	.write = spi_nor_otp_write_otp_mode,
+	.lock = spi_nor_otp_lock_scur,
+	.is_locked = spi_nor_otp_is_locked_scur,
+};
+
 static void macronix_default_init(struct spi_nor *nor)
 {
 	nor->params->quad_enable = spi_nor_sr1_bit6_quad_enable;
 	nor->params->set_4byte_addr_mode = spi_nor_set_4byte_addr_mode;
+
+	if (nor->params->otp_info.n_otps)
+		nor->params->otp_ops = &macronix_otp_ops;
 }
 
 static const struct spi_nor_fixups macronix_fixups = {

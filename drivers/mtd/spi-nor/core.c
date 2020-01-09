@@ -2828,6 +2828,176 @@ static int spi_nor_unlock_all(struct spi_nor *nor)
 	return 0;
 }
 
+/**
+ * spi_nor_set_secured_otp_mode() - Set secured OTP mode
+ * @nor:	pointer to 'struct spi_nor'.
+ * @enable:	true to enter the secured OTP mode, false to exit the secured
+ *		OTP mode.
+ *
+ * Enter and exit OTP mode by using the command SPINOR_OP_ENSO (B1h) and
+ * SPINOR_EP_EXSO (C1h) command.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int spi_nor_set_secured_otp_mode(struct spi_nor *nor, bool enable)
+{
+	u8 cmd = enable ? SPINOR_OP_ENSO : SPINOR_OP_EXSO;
+	int ret;
+
+	ret = spi_nor_simple_cmd(nor, cmd);
+	if (ret)
+		dev_dbg(nor->dev, "error %d setting secured OTP mode\n", ret);
+
+	return ret;
+}
+
+/**
+ * spi_nor_read_scur() - Read the Security Register using the SPINOR_OP_RDSCUR (2Bh) command.
+ * @nor:	pointer to 'struct spi_nor'
+ * @scur:	pointer to a DMA-able buffer where the value of the
+ *		Security Register will be written.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int spi_nor_read_scur(struct spi_nor *nor, u8 *scur)
+{
+	int ret;
+
+	ret = spi_nor_simple_cmd_din(nor, SPINOR_OP_RDSCUR, scur, 1);
+	if (ret)
+		dev_dbg(nor->dev, "error %d reading SCUR\n", ret);
+
+	return ret;
+}
+
+/**
+ * spi_nor_write_scur() - Write the Security Register using the SPINOR_OP_WRSCUR (2Fh) command.
+ * @nor:	pointer to 'struct spi_nor'
+ *
+ * This register contains only one OTP bit. The command doesn't take any
+ * arguments. In fact it _must not_ take any arugments. Otherwise the command
+ * is ignored.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int spi_nor_write_scur(struct spi_nor *nor)
+{
+	int ret;
+
+	ret = spi_nor_simple_cmd(nor, SPINOR_OP_WRSCUR);
+	if (ret)
+		dev_dbg(nor->dev, "error %d writing SCUR\n", ret);
+
+	return ret;
+}
+
+/**
+ * spi_nor_otp_read_otp_mode() - read OTP data
+ * @nor:	pointer to 'struct spi_nor'
+ * @from:       offset to read from
+ * @len:        number of bytes to read
+ * @buf:        pointer to dst buffer
+ *
+ * Read OTP data by using the ENSO and EXSO commands. This method is used on
+ * Adesto, Atmel, Macronix and Micron SPI flashes.
+ *
+ * Return: number of bytes read successfully, -errno otherwise
+ */
+int spi_nor_otp_read_otp_mode(struct spi_nor *nor, loff_t from, uint64_t len, u8 *buf)
+{
+	int ret;
+
+	ret = spi_nor_set_secured_otp_mode(nor, true);
+	if (ret)
+		return ret;
+
+	ret = spi_nor_read_data(nor, from, len, buf);
+
+	spi_nor_set_secured_otp_mode(nor, false);
+
+	return ret;
+}
+
+/**
+ * spi_nor_otp_write_otp_mode() - write OTP data
+ * @nor:        pointer to 'struct spi_nor'
+ * @to:         offset to write to
+ * @len:        number of bytes to write
+ * @buf:        pointer to src buffer
+ *
+ * Write OTP data by using the ENSO and EXSO commands. This method is used on
+ * Adesto, Atmel, Macronix and Micron SPI flashes.
+ *
+ * Return: number of bytes written successfully, -errno otherwise
+ */
+int spi_nor_otp_write_otp_mode(struct spi_nor *nor, loff_t to, uint64_t len, u8 *buf)
+{
+	int ret;
+
+	ret = spi_nor_set_secured_otp_mode(nor, true);
+	if (ret)
+		return ret;
+
+	ret = spi_nor_write_enable(nor);
+	if (ret)
+		goto out;
+
+	ret = spi_nor_write_data(nor, to, len, buf);
+	if (ret < 0)
+		goto out;
+
+	ret = spi_nor_wait_till_ready(nor);
+
+out:
+	spi_nor_set_secured_otp_mode(nor, false);
+
+	return ret;
+}
+
+/**
+ * spi_nor_otp_lock_scur() - lock the OTP region
+ * @nor:        pointer to 'struct spi_nor'
+ * @region:     OTP region
+ *
+ * Lock the OTP region by writing the security register. This method is used on
+ * Adesto, Atmel, Macronix and Micron SPI flashes.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+int spi_nor_otp_lock_scur(struct spi_nor *nor, unsigned int region)
+{
+	if (region != 0)
+		return -EINVAL;
+
+	return spi_nor_write_scur(nor);
+}
+
+/**
+ * spi_nor_otp_is_locked_otp_mode() - get the OTP region lock status
+ * @nor:        pointer to 'struct spi_nor'
+ * @region:     OTP region
+ *
+ * Retrieve the OTP region lock bit by reading the security register. This
+ * method is used on Adesto, Atmel, Macronix and Micron SPI flashes.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+int spi_nor_otp_is_locked_scur(struct spi_nor *nor, unsigned int region)
+{
+	u8 *scur = nor->bouncebuf;
+	int ret;
+
+	if (region != 0)
+		return -EINVAL;
+
+	ret = spi_nor_read_scur(nor, scur);
+	if (ret)
+		return ret;
+
+	return *scur & SCUR_LDSO;
+}
+
+
 static int spi_nor_init(struct spi_nor *nor)
 {
 	int err;
