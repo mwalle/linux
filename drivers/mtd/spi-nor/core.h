@@ -438,6 +438,10 @@ struct flash_info {
 		.otp_start_addr = (_otp_start_addr),			\
 		.otp_addr_offset = (_otp_addr_offset),
 
+#define OTP_INFO1(_otp_size, _otp_start_addr)				\
+		OTP_INFO(_otp_size, 1, _otp_start_addr, 0)
+
+
 /**
  * struct spi_nor_manufacturer - SPI NOR manufacturer object
  * @name: manufacturer name

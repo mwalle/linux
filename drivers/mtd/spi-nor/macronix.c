@@ -42,7 +42,8 @@ static const struct flash_info macronix_parts[] = {
 	{ "mx25l1606e",  INFO(0xc22015, 0, 64 * 1024,  32, SECT_4K) },
 	{ "mx25l3205d",  INFO(0xc22016, 0, 64 * 1024,  64, SECT_4K) },
 	{ "mx25l3255e",  INFO(0xc29e16, 0, 64 * 1024,  64, SECT_4K) },
-	{ "mx25l6405d",  INFO(0xc22017, 0, 64 * 1024, 128, SECT_4K) },
+	{ "mx25l6405d",  INFO(0xc22017, 0, 64 * 1024, 128, SECT_4K)
+			 OTP_INFO1(64, 0) },
 	{ "mx25u2033e",  INFO(0xc22532, 0, 64 * 1024,   4, SECT_4K) },
 	{ "mx25u3235f",	 INFO(0xc22536, 0, 64 * 1024,  64,
 			      SECT_4K | SPI_NOR_DUAL_READ |
@@ -92,10 +93,146 @@ static const struct flash_info macronix_parts[] = {
 			      SPI_NOR_QUAD_READ | SPI_NOR_4B_OPCODES) },
 };
 
+/**
+ * macronix_set_secured_otp_mode() - Set secured OTP mode for Macronix flashes.
+ * @nor:	pointer to 'struct spi_nor'.
+ * @enable:	true to enter the secured OTP mode, false to exit the secured
+ *		OTP mode.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int macronix_set_secured_otp_mode(struct spi_nor *nor, bool enable)
+{
+	u8 cmd = enable ? SPINOR_OP_ENSO : SPINOR_OP_EXSO;
+	int ret;
+
+	ret = spi_nor_simple_cmd(nor, cmd);
+	if (ret)
+		dev_dbg(nor->dev, "error %d setting secured OTP mode\n", ret);
+
+	return ret;
+}
+
+/**
+ * spi_nor_read_scur() - Read the Security Register using the
+ * SPINOR_OP_RDSCUR (2Bh) command.
+ * @nor:	pointer to 'struct spi_nor'
+ * @scur:	pointer to a DMA-able buffer where the value of the
+ *		Security Register will be written.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int macronix_read_scur(struct spi_nor *nor, u8 *scur)
+{
+       int ret;
+
+       ret = spi_nor_simple_cmd_din(nor, SPINOR_OP_RDSCUR, scur, 1);
+       if (ret)
+               dev_dbg(nor->dev, "error %d reading SCUR\n", ret);
+
+       return ret;
+}
+
+/**
+ * spi_nor_write_scur() - Write the Security Register using the
+ * SPINOR_OP_WRSCUR (2Fh) command.
+ * @nor:	pointer to 'struct spi_nor'
+ *
+ * This register contains only one OTP bit. The command doesn't take any
+ * arguments. In fact it _must not_ take any arugments. Otherwise the command
+ * is ignored.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int macronix_write_scur(struct spi_nor *nor)
+{
+       int ret;
+
+       ret = spi_nor_simple_cmd(nor, SPINOR_OP_WRSCUR);
+       if (ret)
+               dev_dbg(nor->dev, "error %d writing SCUR\n", ret);
+
+       return ret;
+}
+
+static int macronix_otp_read(struct spi_nor *nor, loff_t addr, uint64_t len,
+			     u8 *buf)
+{
+	int ret;
+
+	ret = macronix_set_secured_otp_mode(nor, true);
+	if (ret)
+	    return ret;
+
+	ret = spi_nor_read_data(nor, addr, len, buf);
+
+	macronix_set_secured_otp_mode(nor, false);
+
+	return ret;
+}
+
+static int macronix_otp_write(struct spi_nor *nor, loff_t addr, uint64_t len,
+			      u8 *buf)
+{
+	int ret;
+
+	ret = macronix_set_secured_otp_mode(nor, true);
+	if (ret)
+	    return ret;
+
+	ret = spi_nor_write_enable(nor);
+	if (ret)
+		goto out;
+
+	ret = spi_nor_write_data(nor, addr, len, buf);
+	if (ret < 0)
+		goto out;
+
+	ret = spi_nor_wait_till_ready(nor);
+
+out:
+	macronix_set_secured_otp_mode(nor, false);
+
+	return ret;
+}
+
+static int macronix_otp_lock(struct spi_nor *nor, unsigned int region)
+{
+	if (region != 0)
+		return -EINVAL;
+
+	return macronix_write_scur(nor);
+}
+
+static int macronix_otp_is_locked(struct spi_nor *nor, unsigned int region)
+{
+	u8 *scur = nor->bouncebuf;
+	int ret;
+
+	if (region != 0)
+		return -EINVAL;
+
+	ret = macronix_read_scur(nor, scur);
+	if (ret)
+		return ret;
+
+	return *scur & SCUR_LDSO;
+}
+
+static const struct spi_nor_otp_ops macronix_otp_ops = {
+	.read = macronix_otp_read,
+	.write = macronix_otp_write,
+	.lock = macronix_otp_lock,
+	.is_locked = macronix_otp_is_locked,
+};
+
 static void macronix_default_init(struct spi_nor *nor)
 {
 	nor->params->quad_enable = spi_nor_sr1_bit6_quad_enable;
 	nor->params->set_4byte_addr_mode = spi_nor_set_4byte_addr_mode;
+
+	if (nor->params->otp_info.n_otps)
+	    nor->params->otp_ops = &macronix_otp_ops;
 }
 
 static const struct spi_nor_fixups macronix_fixups = {

@@ -97,6 +97,12 @@
 /* Used for Macronix and Winbond flashes. */
 #define SPINOR_OP_EN4B		0xb7	/* Enter 4-byte mode */
 #define SPINOR_OP_EX4B		0xe9	/* Exit 4-byte mode */
+#define SPINOR_OP_ENSO		0xb1	/* Enter secured OTP mode */
+#define SPINOR_OP_EXSO		0xc1	/* Exit secured OTP mode */
+#define SPINOR_OP_RDSCUR	0x2b	/* Read security register */
+#define SPINOR_OP_WRSCUR	0x2f	/* Write security register */
+#define SCUR_SO			BIT(0)	/* OTP factory secured */
+#define SCUR_LDSO		BIT(1)	/* OTP user lock-down */
 
 /* Used for Spansion flashes only. */
 #define SPINOR_OP_BRWR		0x17	/* Bank register write */
