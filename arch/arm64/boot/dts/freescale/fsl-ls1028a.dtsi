@@ -228,6 +228,9 @@
 			reg = <0x0 0x2000000 0x0 0x10000>;
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clockgen 4 3>;
+			dma-names = "tx", "rx";
+			dmas = <&edma0 1 39>,
+			       <&edma0 1 38>;
 			status = "disabled";
 		};
 
