@@ -9,6 +9,31 @@
 #include "core.h"
 
 static int
+mx25u3235f_post_bfpt_fixups(struct spi_nor *nor,
+			    const struct sfdp_parameter_header *bfpt_header,
+			    const struct sfdp_bfpt *bfpt,
+			    struct spi_nor_flash_parameter *params)
+{
+	/*
+	 * MX25U3235F has a JESD216 rev A BFPT table. MX25U3232F uses
+	 * a later version. Thus we use this to differentiate between
+	 * MX25U3235F and MX25U3232F.
+	 *
+	 * The MX25U3232F has 4 block protection bits and one TB bit
+	 * which is OTP.
+	 */
+	if (bfpt_header->length == BFPT_DWORD_MAX)
+		nor->flags |= (SNOR_F_HAS_LOCK | SNOR_F_HAS_4BIT_BP |
+			       SNOR_F_HAS_OTP_TB | SNOR_F_HAS_CR_TB);
+
+	return 0;
+}
+
+static struct spi_nor_fixups mx25u3235f_fixups = {
+	.post_bfpt = mx25u3235f_post_bfpt_fixups,
+};
+
+static int
 mx25l25635_post_bfpt_fixups(struct spi_nor *nor,
 			    const struct sfdp_parameter_header *bfpt_header,
 			    const struct sfdp_bfpt *bfpt,
@@ -47,7 +72,8 @@ static const struct flash_info macronix_parts[] = {
 	{ "mx25u2033e",  INFO(0xc22532, 0, 64 * 1024,   4, SECT_4K) },
 	{ "mx25u3235f",	 INFO(0xc22536, 0, 64 * 1024,  64,
 			      SECT_4K | SPI_NOR_DUAL_READ |
-			      SPI_NOR_QUAD_READ) },
+			      SPI_NOR_QUAD_READ)
+		.fixups = &mx25u3235f_fixups },
 	{ "mx25u4035",   INFO(0xc22533, 0, 64 * 1024,   8, SECT_4K) },
 	{ "mx25u8035",   INFO(0xc22534, 0, 64 * 1024,  16, SECT_4K) },
 	{ "mx25u6435f",  INFO(0xc22537, 0, 64 * 1024, 128, SECT_4K) },
