@@ -1709,6 +1709,25 @@ static u8 spi_nor_get_sr_tb_mask(struct spi_nor *nor)
 		return SR_TB_BIT5;
 }
 
+static bool spi_nor_is_bottom_locked(struct spi_nor *nor, u8 sr)
+{
+	u8 sr_tb_mask = spi_nor_get_sr_tb_mask(nor);
+
+	if (nor->flags & SNOR_F_HAS_SR_TB)
+		return sr & sr_tb_mask;
+	else
+		return 0;
+}
+
+static bool spi_nor_has_writable_tb_bit(struct spi_nor *nor)
+{
+	if (nor->flags & SNOR_F_HAS_OTP_TB)
+		return false;
+	if (nor->flags & SNOR_F_HAS_SR_TB)
+		return true;
+	return false;
+}
+
 static u64 spi_nor_get_min_prot_length_sr(struct spi_nor *nor)
 {
 	unsigned int bp_slots, bp_slots_needed;
@@ -1731,7 +1750,6 @@ static void spi_nor_get_locked_range_sr(struct spi_nor *nor, u8 sr, loff_t *ofs,
 	struct mtd_info *mtd = &nor->mtd;
 	u64 min_prot_len;
 	u8 mask = spi_nor_get_sr_bp_mask(nor);
-	u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
 	u8 bp, val = sr & mask;
 
 	if (nor->flags & SNOR_F_HAS_SR_BP3_BIT6 && val & SR_BP3_BIT6)
@@ -1752,7 +1770,7 @@ static void spi_nor_get_locked_range_sr(struct spi_nor *nor, u8 sr, loff_t *ofs,
 	if (*len > mtd->size)
 		*len = mtd->size;
 
-	if (nor->flags & SNOR_F_HAS_SR_TB && sr & tb_mask)
+	if (spi_nor_is_bottom_locked(nor, sr))
 		*ofs = 0;
 	else
 		*ofs = mtd->size - *len;
@@ -1832,10 +1850,9 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	u64 min_prot_len;
 	int ret, status_old, status_new;
 	u8 mask = spi_nor_get_sr_bp_mask(nor);
-	u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
 	u8 pow, val;
 	loff_t lock_len;
-	bool can_be_top = true, can_be_bottom = nor->flags & SNOR_F_HAS_SR_TB;
+	bool can_be_top, can_be_bottom;
 	bool use_top;
 
 	ret = spi_nor_read_sr(nor, nor->bouncebuf);
@@ -1843,6 +1860,13 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 		return ret;
 
 	status_old = nor->bouncebuf[0];
+
+	if (spi_nor_has_writable_tb_bit(nor))
+		can_be_top = can_be_bottom = true;
+	else if (spi_nor_is_bottom_locked(nor, status_old))
+		can_be_bottom = true;
+	else
+		can_be_top = true;
 
 	/* If nothing in our range is unlocked, we don't need to do anything */
 	if (spi_nor_is_locked_sr(nor, ofs, len, status_old))
@@ -1887,13 +1911,20 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 			return -EINVAL;
 	}
 
-	status_new = (status_old & ~mask & ~tb_mask) | val;
+	status_new = (status_old & ~mask) | val;
 
 	/* Disallow further writes if WP pin is asserted */
 	status_new |= SR_SRWD;
 
-	if (!use_top)
-		status_new |= tb_mask;
+	/* Write the TB bit back if it is not OTP */
+	if (!(nor->flags & SNOR_F_HAS_OTP_TB)) {
+		u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
+
+		if (use_top)
+			status_new &= ~tb_mask;
+		else
+			status_new |= tb_mask;
+	}
 
 	/* Don't bother if they're the same */
 	if (status_new == status_old)
@@ -1917,10 +1948,9 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	u64 min_prot_len;
 	int ret, status_old, status_new;
 	u8 mask = spi_nor_get_sr_bp_mask(nor);
-	u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
 	u8 pow, val;
 	loff_t lock_len;
-	bool can_be_top = true, can_be_bottom = nor->flags & SNOR_F_HAS_SR_TB;
+	bool can_be_top, can_be_bottom;
 	bool use_top;
 
 	ret = spi_nor_read_sr(nor, nor->bouncebuf);
@@ -1928,6 +1958,13 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 		return ret;
 
 	status_old = nor->bouncebuf[0];
+
+	if (spi_nor_has_writable_tb_bit(nor))
+		can_be_top = can_be_bottom = true;
+	else if (spi_nor_is_bottom_locked(nor, status_old))
+		can_be_bottom = true;
+	else
+		can_be_top = true;
 
 	/* If nothing in our range is locked, we don't need to do anything */
 	if (spi_nor_is_unlocked_sr(nor, ofs, len, status_old))
@@ -1969,14 +2006,21 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 			return -EINVAL;
 	}
 
-	status_new = (status_old & ~mask & ~tb_mask) | val;
+	status_new = (status_old & ~mask) | val;
 
 	/* Don't protect status register if we're fully unlocked */
 	if (lock_len == 0)
 		status_new &= ~SR_SRWD;
 
-	if (!use_top)
-		status_new |= tb_mask;
+	/* Write the TB bit back if it is not OTP */
+	if (!(nor->flags & SNOR_F_HAS_OTP_TB)) {
+		u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
+
+		if (use_top)
+			status_new &= ~tb_mask;
+		else
+			status_new |= tb_mask;
+	}
 
 	/* Don't bother if they're the same */
 	if (status_new == status_old)
@@ -3599,6 +3643,8 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 		if (info->flags & SPI_NOR_TB_SR_BIT6)
 			nor->flags |= SNOR_F_HAS_SR_TB_BIT6;
 	}
+	if (info->flags & SPI_NOR_HAS_OTP_TB)
+		nor->flags |= SNOR_F_HAS_OTP_TB;
 
 	if (info->flags & NO_CHIP_ERASE)
 		nor->flags |= SNOR_F_NO_OP_CHIP_ERASE;

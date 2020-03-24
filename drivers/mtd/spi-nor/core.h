@@ -368,6 +368,7 @@ struct flash_info {
 					 * bits. Usually these will power-up in
 					 * a write-protected state.
 					 */
+#define SPI_NOR_HAS_OTP_TB	BIT(20) /* TB bit is one time programmable. */
 
 	/* Part specific fixup hooks. */
 	const struct spi_nor_fixups *fixups;
