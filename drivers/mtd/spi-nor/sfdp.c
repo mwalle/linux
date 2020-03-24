@@ -15,6 +15,7 @@
 	(((p)->parameter_table_pointer[2] << 16) | \
 	 ((p)->parameter_table_pointer[1] <<  8) | \
 	 ((p)->parameter_table_pointer[0] <<  0))
+#define SFDP_PARAM_HEADER_LEN(p) ((p)->length * 4)
 
 #define SFDP_BFPT_ID		0xff00	/* Basic Flash Parameter Table */
 #define SFDP_SECTOR_MAP_ID	0xff81	/* Sector Map Table */
@@ -172,19 +173,27 @@ static int spi_nor_read_sfdp(struct spi_nor *nor, u32 addr,
 			     size_t len, void *buf)
 {
 	u8 addr_width, read_opcode, read_dummy;
+	struct spi_mem_dirmap_desc *rdesc;
+	enum spi_nor_protocol read_proto;
 	int ret;
 
 	read_opcode = nor->read_opcode;
+	read_proto = nor->read_proto;
+	rdesc = nor->dirmap.rdesc;
 	addr_width = nor->addr_width;
 	read_dummy = nor->read_dummy;
 
 	nor->read_opcode = SPINOR_OP_RDSFDP;
+	nor->read_proto = SNOR_PROTO_1_1_1;
+	nor->dirmap.rdesc = NULL;
 	nor->addr_width = 3;
 	nor->read_dummy = 8;
 
 	ret = spi_nor_read_raw(nor, addr, len, buf);
 
 	nor->read_opcode = read_opcode;
+	nor->read_proto = read_proto;
+	nor->dirmap.rdesc = rdesc;
 	nor->addr_width = addr_width;
 	nor->read_dummy = read_dummy;
 
@@ -204,8 +213,8 @@ static int spi_nor_read_sfdp(struct spi_nor *nor, u32 addr,
  * Return: -ENOMEM if kmalloc() fails, the return code of spi_nor_read_sfdp()
  *          otherwise.
  */
-static int spi_nor_read_sfdp_dma_unsafe(struct spi_nor *nor, u32 addr,
-					size_t len, void *buf)
+int spi_nor_read_sfdp_dma_unsafe(struct spi_nor *nor, u32 addr,
+				 size_t len, void *buf)
 {
 	void *dma_safe_buf;
 	int ret;
@@ -1126,6 +1135,9 @@ int spi_nor_parse_sfdp(struct spi_nor *nor,
 	    bfpt_header->major != SFDP_JESD216_MAJOR)
 		return -EINVAL;
 
+	nor->sfdp_size = SFDP_PARAM_HEADER_PTP(bfpt_header)
+			 + SFDP_PARAM_HEADER_LEN(bfpt_header);
+
 	/*
 	 * Allocate memory then read all parameter headers with a single
 	 * Read SFDP command. These parameter headers will actually be parsed
@@ -1151,6 +1163,17 @@ int spi_nor_parse_sfdp(struct spi_nor *nor,
 			goto exit;
 		}
 	}
+
+printk("header.nph=%d\n", header.nph);
+	for (i = 0; i < header.nph; i++) {
+		size_t max_offset;
+
+		param_header = &param_headers[i];
+		max_offset = SFDP_PARAM_HEADER_PTP(param_header);
+		max_offset += SFDP_PARAM_HEADER_LEN(param_header);
+		nor->sfdp_size = max(nor->sfdp_size, max_offset);
+	}
+printk("sfdp_size=%ld\n", nor->sfdp_size);
 
 	/*
 	 * Check other parameter headers to get the latest revision of
