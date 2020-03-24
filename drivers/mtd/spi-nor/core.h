@@ -29,6 +29,8 @@ enum spi_nor_option_flags {
 	SNOR_F_IO_MODE_EN_VOLATILE = BIT(14),
 	SNOR_F_SOFT_RESET	= BIT(15),
 	SNOR_F_WP_IS_VOLATILE	= BIT(16),
+	SNOR_F_HAS_OTP_TB	= BIT(17),
+	SNOR_F_HAS_CR_TB	= BIT(18),
 };
 
 struct spi_nor_read_command {
@@ -369,6 +371,7 @@ struct flash_info {
 					 * a write-protected state.
 					 */
 #define SPI_NOR_HAS_OTP_TB	BIT(20) /* TB bit is one time programmable. */
+#define SPI_NOR_TB_CR		BIT(21) /* TB is in control register */
 
 	/* Part specific fixup hooks. */
 	const struct spi_nor_fixups *fixups;

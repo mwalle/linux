@@ -146,6 +146,8 @@
 
 #define SR_BP_SHIFT		2
 
+#define CR_TB_BIT3		BIT(3)
+
 /* Enhanced Volatile Configuration Register bits */
 #define EVCR_QUAD_EN_MICRON	BIT(7)	/* Micron Quad I/O */
 

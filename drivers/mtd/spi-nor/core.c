@@ -1709,12 +1709,14 @@ static u8 spi_nor_get_sr_tb_mask(struct spi_nor *nor)
 		return SR_TB_BIT5;
 }
 
-static bool spi_nor_is_bottom_locked(struct spi_nor *nor, u8 sr)
+static bool spi_nor_is_bottom_locked(struct spi_nor *nor, u8 sr, u8 cr)
 {
 	u8 sr_tb_mask = spi_nor_get_sr_tb_mask(nor);
 
 	if (nor->flags & SNOR_F_HAS_SR_TB)
 		return sr & sr_tb_mask;
+	else if (nor->flags & SNOR_F_HAS_CR_TB)
+		return cr & CR_TB_BIT3;
 	else
 		return 0;
 }
@@ -1724,6 +1726,8 @@ static bool spi_nor_has_writable_tb_bit(struct spi_nor *nor)
 	if (nor->flags & SNOR_F_HAS_OTP_TB)
 		return false;
 	if (nor->flags & SNOR_F_HAS_SR_TB)
+		return true;
+	if (nor->flags & SNOR_F_HAS_CR_TB)
 		return true;
 	return false;
 }
@@ -1744,8 +1748,8 @@ static u64 spi_nor_get_min_prot_length_sr(struct spi_nor *nor)
 		return nor->info->sector_size;
 }
 
-static void spi_nor_get_locked_range_sr(struct spi_nor *nor, u8 sr, loff_t *ofs,
-					uint64_t *len)
+static void spi_nor_get_locked_range(struct spi_nor *nor, u8 sr, u8 cr,
+				     loff_t *ofs, uint64_t *len)
 {
 	struct mtd_info *mtd = &nor->mtd;
 	u64 min_prot_len;
@@ -1770,7 +1774,7 @@ static void spi_nor_get_locked_range_sr(struct spi_nor *nor, u8 sr, loff_t *ofs,
 	if (*len > mtd->size)
 		*len = mtd->size;
 
-	if (spi_nor_is_bottom_locked(nor, sr))
+	if (spi_nor_is_bottom_locked(nor, sr, cr))
 		*ofs = 0;
 	else
 		*ofs = mtd->size - *len;
@@ -1780,8 +1784,8 @@ static void spi_nor_get_locked_range_sr(struct spi_nor *nor, u8 sr, loff_t *ofs,
  * Return 1 if the entire region is locked (if @locked is true) or unlocked (if
  * @locked is false); 0 otherwise
  */
-static int spi_nor_check_lock_status_sr(struct spi_nor *nor, loff_t ofs,
-					uint64_t len, u8 sr, bool locked)
+static int spi_nor_check_lock_status(struct spi_nor *nor, loff_t ofs,
+				     uint64_t len, u8 sr, u8 cr, bool locked)
 {
 	loff_t lock_offs;
 	uint64_t lock_len;
@@ -1789,7 +1793,7 @@ static int spi_nor_check_lock_status_sr(struct spi_nor *nor, loff_t ofs,
 	if (!len)
 		return 1;
 
-	spi_nor_get_locked_range_sr(nor, sr, &lock_offs, &lock_len);
+	spi_nor_get_locked_range(nor, sr, cr, &lock_offs, &lock_len);
 
 	if (locked)
 		/* Requested range is a sub-range of locked range */
@@ -1799,16 +1803,16 @@ static int spi_nor_check_lock_status_sr(struct spi_nor *nor, loff_t ofs,
 		return (ofs >= lock_offs + lock_len) || (ofs + len <= lock_offs);
 }
 
-static int spi_nor_is_locked_sr(struct spi_nor *nor, loff_t ofs, uint64_t len,
-				u8 sr)
+static int spi_nor_is_range_locked(struct spi_nor *nor, loff_t ofs,
+				   uint64_t len, u8 sr, u8 cr)
 {
-	return spi_nor_check_lock_status_sr(nor, ofs, len, sr, true);
+	return spi_nor_check_lock_status(nor, ofs, len, sr, cr, true);
 }
 
-static int spi_nor_is_unlocked_sr(struct spi_nor *nor, loff_t ofs, uint64_t len,
-				  u8 sr)
+static int spi_nor_is_range_unlocked(struct spi_nor *nor, loff_t ofs,
+				     uint64_t len, u8 sr, u8 cr)
 {
-	return spi_nor_check_lock_status_sr(nor, ofs, len, sr, false);
+	return spi_nor_check_lock_status(nor, ofs, len, sr, cr, false);
 }
 
 /*
@@ -1854,6 +1858,7 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	loff_t lock_len;
 	bool can_be_top, can_be_bottom;
 	bool use_top;
+	u8 control = 0;
 
 	ret = spi_nor_read_sr(nor, nor->bouncebuf);
 	if (ret)
@@ -1861,24 +1866,31 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 
 	status_old = nor->bouncebuf[0];
 
+	if (nor->flags & SNOR_F_HAS_CR_TB) {
+		ret = spi_nor_read_cr(nor, nor->bouncebuf);
+		if (ret)
+			return ret;
+		control = nor->bouncebuf[0];
+	}
+
 	if (spi_nor_has_writable_tb_bit(nor))
 		can_be_top = can_be_bottom = true;
-	else if (spi_nor_is_bottom_locked(nor, status_old))
+	else if (spi_nor_is_bottom_locked(nor, status_old, control))
 		can_be_bottom = true;
 	else
 		can_be_top = true;
 
 	/* If nothing in our range is unlocked, we don't need to do anything */
-	if (spi_nor_is_locked_sr(nor, ofs, len, status_old))
+	if (spi_nor_is_range_locked(nor, ofs, len, status_old, control))
 		return 0;
 
 	/* If anything below us is unlocked, we can't use 'bottom' protection */
-	if (!spi_nor_is_locked_sr(nor, 0, ofs, status_old))
+	if (!spi_nor_is_range_locked(nor, 0, ofs, status_old, control))
 		can_be_bottom = false;
 
 	/* If anything above us is unlocked, we can't use 'top' protection */
-	if (!spi_nor_is_locked_sr(nor, ofs + len, mtd->size - (ofs + len),
-				  status_old))
+	if (!spi_nor_is_range_locked(nor, ofs + len, mtd->size - (ofs + len),
+				     status_old, control))
 		can_be_top = false;
 
 	if (!can_be_bottom && !can_be_top)
@@ -1916,7 +1928,13 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	/* Disallow further writes if WP pin is asserted */
 	status_new |= SR_SRWD;
 
-	/* Write the TB bit back if it is not OTP */
+	/*
+	 * Write the TB bit back if it is not OTP.
+	 *
+	 * Please note that writeback of a TB bit in the control register is
+	 * not implemented yet! As the time of this writing I'm not aware of
+	 * any flashes which have a writable TB bit in the control register.
+	 */
 	if (!(nor->flags & SNOR_F_HAS_OTP_TB)) {
 		u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
 
@@ -1952,6 +1970,7 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	loff_t lock_len;
 	bool can_be_top, can_be_bottom;
 	bool use_top;
+	u8 control = 0;
 
 	ret = spi_nor_read_sr(nor, nor->bouncebuf);
 	if (ret)
@@ -1959,24 +1978,31 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 
 	status_old = nor->bouncebuf[0];
 
+	if (nor->flags & SNOR_F_HAS_CR_TB) {
+		ret = spi_nor_read_cr(nor, nor->bouncebuf);
+		if (ret)
+			return ret;
+		control = nor->bouncebuf[0];
+	}
+
 	if (spi_nor_has_writable_tb_bit(nor))
 		can_be_top = can_be_bottom = true;
-	else if (spi_nor_is_bottom_locked(nor, status_old))
+	else if (spi_nor_is_bottom_locked(nor, status_old, control))
 		can_be_bottom = true;
 	else
 		can_be_top = true;
 
 	/* If nothing in our range is locked, we don't need to do anything */
-	if (spi_nor_is_unlocked_sr(nor, ofs, len, status_old))
+	if (spi_nor_is_range_unlocked(nor, ofs, len, status_old, control))
 		return 0;
 
 	/* If anything below us is locked, we can't use 'top' protection */
-	if (!spi_nor_is_unlocked_sr(nor, 0, ofs, status_old))
+	if (!spi_nor_is_range_unlocked(nor, 0, ofs, status_old, control))
 		can_be_top = false;
 
 	/* If anything above us is locked, we can't use 'bottom' protection */
-	if (!spi_nor_is_unlocked_sr(nor, ofs + len, mtd->size - (ofs + len),
-				    status_old))
+	if (!spi_nor_is_range_unlocked(nor, ofs + len, mtd->size - (ofs + len),
+				       status_old, control))
 		can_be_bottom = false;
 
 	if (!can_be_bottom && !can_be_top)
@@ -2012,7 +2038,7 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	if (lock_len == 0)
 		status_new &= ~SR_SRWD;
 
-	/* Write the TB bit back if it is not OTP */
+	/* Write the TB bit back if it is not OTP. See spi_nor_sr_lock(). */
 	if (!(nor->flags & SNOR_F_HAS_OTP_TB)) {
 		u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
 
@@ -2043,12 +2069,21 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 static int spi_nor_sr_is_locked(struct spi_nor *nor, loff_t ofs, uint64_t len)
 {
 	int ret;
+	u8 sr, cr = 0;
 
 	ret = spi_nor_read_sr(nor, nor->bouncebuf);
 	if (ret)
 		return ret;
+	sr = nor->bouncebuf[0];
 
-	return spi_nor_is_locked_sr(nor, ofs, len, nor->bouncebuf[0]);
+	if (nor->flags & SNOR_F_HAS_CR_TB) {
+		ret = spi_nor_read_cr(nor, nor->bouncebuf);
+		if (ret)
+			return ret;
+		cr = nor->bouncebuf[0];
+	}
+
+	return spi_nor_is_range_locked(nor, ofs, len, sr, cr);
 }
 
 static const struct spi_nor_locking_ops spi_nor_sr_locking_ops = {
@@ -3639,9 +3674,13 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	if (info->flags & USE_FSR)
 		nor->flags |= SNOR_F_USE_FSR;
 	if (info->flags & SPI_NOR_HAS_TB) {
-		nor->flags |= SNOR_F_HAS_SR_TB;
-		if (info->flags & SPI_NOR_TB_SR_BIT6)
-			nor->flags |= SNOR_F_HAS_SR_TB_BIT6;
+		if (info->flags & SPI_NOR_TB_CR)
+			nor->flags |= SNOR_F_HAS_CR_TB;
+		else {
+			nor->flags |= SNOR_F_HAS_SR_TB;
+			if (info->flags & SPI_NOR_TB_SR_BIT6)
+				nor->flags |= SNOR_F_HAS_SR_TB_BIT6;
+		}
 	}
 	if (info->flags & SPI_NOR_HAS_OTP_TB)
 		nor->flags |= SNOR_F_HAS_OTP_TB;
