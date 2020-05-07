@@ -799,21 +799,34 @@ out_unlock:
 }
 EXPORT_SYMBOL(phy_start_aneg);
 
-static int phy_poll_aneg_done(struct phy_device *phydev)
+/**
+ * phy_poll_aneg_done - poll until auto-negotiation is completed
+ * @phydev: the phy_device struct
+ * @timeout: timeout in ms
+ *
+ * Description: Poll the given phydev until the auto-negotiation is completed
+ * or the timeout is reached. Please note, that this function will sleep for
+ * 100ms between each read.
+ *
+ * Returns 0 on success or < 0 on error, -ETIMEDOUT on timeout.
+ */
+int phy_poll_aneg_done(struct phy_device *phydev, unsigned int timeout)
 {
-	unsigned int retries = 100;
+	unsigned int waited = 0;
 	int ret;
 
 	do {
 		msleep(100);
+		waited += 100;
 		ret = phy_aneg_done(phydev);
-	} while (!ret && --retries);
+	} while (!ret && waited < timeout);
 
 	if (!ret)
 		return -ETIMEDOUT;
 
 	return ret < 0 ? ret : 0;
 }
+EXPORT_SYMBOL_GPL(phy_poll_aneg_done);
 
 /**
  * phy_speed_down - set speed to lowest speed supported by both link partners
@@ -851,7 +864,7 @@ int phy_speed_down(struct phy_device *phydev, bool sync)
 	if (ret)
 		return ret;
 
-	return sync ? phy_poll_aneg_done(phydev) : 0;
+	return sync ? phy_poll_aneg_done(phydev, 10000) : 0;
 }
 EXPORT_SYMBOL_GPL(phy_speed_down);
 
