@@ -441,6 +441,9 @@ static void __iomem *dw_pcie_other_conf_map_bus(struct pci_bus *bus,
 	struct pcie_port *pp = bus->sysdata;
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 
+	if (!dw_pcie_link_up(pci))
+		return NULL;
+
 	busdev = PCIE_ATU_BUS(bus->number) | PCIE_ATU_DEV(PCI_SLOT(devfn)) |
 		 PCIE_ATU_FUNC(PCI_FUNC(devfn));
 
