@@ -425,6 +425,7 @@ struct spi_nor {
 	bool			sst_write_second;
 	u32			flags;
 	enum spi_nor_cmd_ext	cmd_ext_type;
+	size_t			sfdp_size;
 
 	const struct spi_nor_controller_ops *controller_ops;
 

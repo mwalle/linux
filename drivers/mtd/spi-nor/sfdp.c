@@ -16,6 +16,7 @@
 	(((p)->parameter_table_pointer[2] << 16) | \
 	 ((p)->parameter_table_pointer[1] <<  8) | \
 	 ((p)->parameter_table_pointer[0] <<  0))
+#define SFDP_PARAM_HEADER_LEN(p) ((p)->length * 4)
 
 #define SFDP_BFPT_ID		0xff00	/* Basic Flash Parameter Table */
 #define SFDP_SECTOR_MAP_ID	0xff81	/* Sector Map Table */
@@ -1286,6 +1287,9 @@ int spi_nor_parse_sfdp(struct spi_nor *nor,
 	    bfpt_header->major != SFDP_JESD216_MAJOR)
 		return -EINVAL;
 
+	nor->sfdp_size = SFDP_PARAM_HEADER_PTP(bfpt_header)
+			 + SFDP_PARAM_HEADER_LEN(bfpt_header);
+
 	/*
 	 * Allocate memory then read all parameter headers with a single
 	 * Read SFDP command. These parameter headers will actually be parsed
@@ -1310,6 +1314,15 @@ int spi_nor_parse_sfdp(struct spi_nor *nor,
 			dev_dbg(dev, "failed to read SFDP parameter headers\n");
 			goto exit;
 		}
+	}
+
+	for (i = 0; i < header.nph; i++) {
+		size_t max_offset;
+
+		param_header = &param_headers[i];
+		max_offset = SFDP_PARAM_HEADER_PTP(param_header);
+		max_offset += SFDP_PARAM_HEADER_LEN(param_header);
+		nor->sfdp_size = max(nor->sfdp_size, max_offset);
 	}
 
 	/*
