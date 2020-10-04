@@ -29,7 +29,7 @@ static int atmel_set_global_protection(struct spi_nor *nor, loff_t ofs,
 	if (ofs || len != nor->params->size)
 		return -EINVAL;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr(nor, nor->bouncebuf, 1);
 	if (ret)
 		return ret;
 	sr = nor->bouncebuf[0];
@@ -69,7 +69,7 @@ static int atmel_is_global_protected(struct spi_nor *nor, loff_t ofs, uint64_t l
 	if (ofs >= nor->params->size || (ofs + len) > nor->params->size)
 		return -EINVAL;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr(nor, nor->bouncebuf, 1);
 	if (ret)
 		return ret;
 
