@@ -1714,9 +1714,15 @@ static bool spi_nor_is_bottom_locked(struct spi_nor *nor, u8 sr, u8 cr)
 	u8 sr_tb_mask = spi_nor_get_sr_tb_mask(nor);
 
 	if (nor->flags & SNOR_F_HAS_SR_TB)
+{
+printk("%s:%d\n", __FILE__, __LINE__);
 		return sr & sr_tb_mask;
+}
 	else if (nor->flags & SNOR_F_HAS_CR_TB)
+{
+printk("%s:%d\n", __FILE__, __LINE__);
 		return cr & CR_TB_BIT3;
+}
 	else
 		return 0;
 }
@@ -1856,7 +1862,7 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	u8 mask = spi_nor_get_sr_bp_mask(nor);
 	u8 pow, val;
 	loff_t lock_len;
-	bool can_be_top, can_be_bottom;
+	bool can_be_top = false, can_be_bottom = false;
 	bool use_top;
 	u8 control = 0;
 
@@ -1873,12 +1879,15 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 		control = nor->bouncebuf[0];
 	}
 
+printk("%s: writable_tb=%d status=%02x control=%02x\n", __func__, spi_nor_has_writable_tb_bit(nor), status_old, control);
+
 	if (spi_nor_has_writable_tb_bit(nor))
 		can_be_top = can_be_bottom = true;
 	else if (spi_nor_is_bottom_locked(nor, status_old, control))
 		can_be_bottom = true;
 	else
 		can_be_top = true;
+printk("%s: can_be_top=%d can_be_bottom=%d\n", __func__, can_be_top, can_be_bottom);
 
 	/* If nothing in our range is unlocked, we don't need to do anything */
 	if (spi_nor_is_range_locked(nor, ofs, len, status_old, control))
@@ -1896,6 +1905,7 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	if (!can_be_bottom && !can_be_top)
 		return -EINVAL;
 
+printk("%s: 2 can_be_top=%d can_be_bottom=%d\n", __func__, can_be_top, can_be_bottom);
 	/* Prefer top, if both are valid */
 	use_top = can_be_top;
 
@@ -1968,7 +1978,7 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	u8 mask = spi_nor_get_sr_bp_mask(nor);
 	u8 pow, val;
 	loff_t lock_len;
-	bool can_be_top, can_be_bottom;
+	bool can_be_top = false, can_be_bottom = false;
 	bool use_top;
 	u8 control = 0;
 
