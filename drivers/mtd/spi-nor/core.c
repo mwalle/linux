@@ -273,10 +273,11 @@ int spi_nor_write_disable(struct spi_nor *nor)
  * @nor:	pointer to 'struct spi_nor'.
  * @sr:		pointer to a DMA-able buffer where the value of the
  *              Status Register will be written.
+ * @len:	number of bytes to read from the Status Register.
  *
  * Return: 0 on success, -errno otherwise.
  */
-static int spi_nor_read_sr(struct spi_nor *nor, u8 *sr)
+static int spi_nor_read_sr(struct spi_nor *nor, u8 *sr, size_t len)
 {
 	int ret;
 
@@ -285,12 +286,12 @@ static int spi_nor_read_sr(struct spi_nor *nor, u8 *sr)
 			SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDSR, 1),
 				   SPI_MEM_OP_NO_ADDR,
 				   SPI_MEM_OP_NO_DUMMY,
-				   SPI_MEM_OP_DATA_IN(1, sr, 1));
+				   SPI_MEM_OP_DATA_IN(len, sr, 1));
 
 		ret = spi_mem_exec_op(nor->spimem, &op);
 	} else {
 		ret = nor->controller_ops->read_reg(nor, SPINOR_OP_RDSR,
-						    sr, 1);
+						    sr, len);
 	}
 
 	if (ret)
@@ -546,7 +547,7 @@ static void spi_nor_clear_sr(struct spi_nor *nor)
  */
 static int spi_nor_sr_ready(struct spi_nor *nor)
 {
-	int ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	int ret = spi_nor_read_sr(nor, nor->bouncebuf, 1);
 
 	if (ret)
 		return ret;
@@ -767,7 +768,7 @@ static int spi_nor_write_sr1_and_check(struct spi_nor *nor, u8 sr1)
 	if (ret)
 		return ret;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr(nor, nor->bouncebuf, 1);
 	if (ret)
 		return ret;
 
@@ -861,7 +862,7 @@ static int spi_nor_write_16bit_cr_and_check(struct spi_nor *nor, u8 cr)
 	u8 sr_written;
 
 	/* Keep the current value of the Status Register 1. */
-	ret = spi_nor_read_sr(nor, sr_cr);
+	ret = spi_nor_read_sr(nor, sr_cr, 1);
 	if (ret)
 		return ret;
 
@@ -873,7 +874,7 @@ static int spi_nor_write_16bit_cr_and_check(struct spi_nor *nor, u8 cr)
 
 	sr_written = sr_cr[0];
 
-	ret = spi_nor_read_sr(nor, sr_cr);
+	ret = spi_nor_read_sr(nor, sr_cr, 1);
 	if (ret)
 		return ret;
 
@@ -1686,7 +1687,7 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	bool can_be_top = true, can_be_bottom = nor->flags & SNOR_F_HAS_SR_TB;
 	bool use_top;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr(nor, nor->bouncebuf, 1);
 	if (ret)
 		return ret;
 
@@ -1771,7 +1772,7 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 	bool can_be_top = true, can_be_bottom = nor->flags & SNOR_F_HAS_SR_TB;
 	bool use_top;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr(nor, nor->bouncebuf, 1);
 	if (ret)
 		return ret;
 
@@ -1848,7 +1849,7 @@ static int spi_nor_sr_is_locked(struct spi_nor *nor, loff_t ofs, uint64_t len)
 {
 	int ret;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr(nor, nor->bouncebuf, 1);
 	if (ret)
 		return ret;
 
@@ -1919,7 +1920,7 @@ int spi_nor_sr1_bit6_quad_enable(struct spi_nor *nor)
 {
 	int ret;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr(nor, nor->bouncebuf, 1);
 	if (ret)
 		return ret;
 
