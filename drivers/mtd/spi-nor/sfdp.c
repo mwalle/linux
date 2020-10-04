@@ -219,8 +219,8 @@ static int spi_nor_read_sfdp(struct spi_nor *nor, u32 addr,
  * Return: -ENOMEM if kmalloc() fails, the return code of spi_nor_read_sfdp()
  *          otherwise.
  */
-static int spi_nor_read_sfdp_dma_unsafe(struct spi_nor *nor, u32 addr,
-					size_t len, void *buf)
+int spi_nor_read_sfdp_dma_unsafe(struct spi_nor *nor, u32 addr,
+				 size_t len, void *buf)
 {
 	void *dma_safe_buf;
 	int ret;

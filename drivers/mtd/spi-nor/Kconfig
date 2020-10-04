@@ -66,6 +66,12 @@ config MTD_SPI_NOR_WP_KEEP
 
 endchoice
 
+config MTD_SPI_NOR_SYSFS
+	bool "Enable sysfs support"
+	default y
+	help
+	  TBD
+
 source "drivers/mtd/spi-nor/controllers/Kconfig"
 
 endif # MTD_SPI_NOR

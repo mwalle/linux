@@ -109,5 +109,7 @@ struct sfdp_parameter_header {
 
 int spi_nor_parse_sfdp(struct spi_nor *nor,
 		       struct spi_nor_flash_parameter *params);
+int spi_nor_read_sfdp_dma_unsafe(struct spi_nor *nor, u32 addr,
+				 size_t len, void *buf);
 
 #endif /* __LINUX_MTD_SFDP_H */

@@ -530,4 +530,17 @@ static struct spi_nor __maybe_unused *mtd_to_spi_nor(struct mtd_info *mtd)
 	return mtd->priv;
 }
 
+#if IS_ENABLED(CONFIG_MTD_SPI_NOR_SYSFS)
+int spi_nor_sysfs_create(struct spi_nor *nor);
+void spi_nor_sysfs_remove(struct spi_nor *nor);
+#else
+static inline int spi_nor_sysfs_create(struct spi_nor *nor)
+{
+	return 0;
+}
+
+static inline void spi_nor_sysfs_remove(struct spi_nor *nor)
+{ }
+#endif
+
 #endif /* __LINUX_MTD_SPI_NOR_INTERNAL_H */
