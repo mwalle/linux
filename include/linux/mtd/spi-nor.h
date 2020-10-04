@@ -376,6 +376,7 @@ struct spi_nor {
 	enum spi_nor_protocol	reg_proto;
 	bool			sst_write_second;
 	u32			flags;
+	size_t			sfdp_size;
 
 	const struct spi_nor_controller_ops *controller_ops;
 
