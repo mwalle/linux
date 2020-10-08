@@ -18,25 +18,16 @@ static ssize_t status_reg_show(struct device *dev,
 	struct spi_device *spi = to_spi_device(dev);
 	struct spi_mem *spimem = spi_get_drvdata(spi);
 	struct spi_nor *nor = spi_mem_get_drvdata(spimem);
-	int len = nor->flags & SNOR_F_HAS_16BIT_SR ? 2 : 1;
 	int ret;
 
 	ret = spi_nor_lock_and_prep(nor);
 	if (ret)
 		return ret;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf, len);
-	if (ret)
-		goto out;
-
-	if (nor->flags & SNOR_F_HAS_16BIT_SR)
-		ret = sprintf(buf, "%02x%02x\n", nor->bouncebuf[1], nor->bouncebuf[0]);
-	else
-		ret = sprintf(buf, "%02x\n", nor->bouncebuf[0]);
-
-out:
+	ret = spi_nor_read_sr(nor, nor->bouncebuf, 1);
 	spi_nor_unlock_and_unprep(nor);
-	return ret;
+
+	return ret ? ret : sprintf(buf, "%02x\n", nor->bouncebuf[0]);
 }
 static DEVICE_ATTR_RO(status_reg);
 

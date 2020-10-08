@@ -277,7 +277,7 @@ int spi_nor_write_disable(struct spi_nor *nor)
  *
  * Return: 0 on success, -errno otherwise.
  */
-static int spi_nor_read_sr(struct spi_nor *nor, u8 *sr, size_t len)
+int spi_nor_read_sr(struct spi_nor *nor, u8 *sr, size_t len)
 {
 	int ret;
 
@@ -340,7 +340,7 @@ static int spi_nor_read_fsr(struct spi_nor *nor, u8 *fsr)
  *
  * Return: 0 on success, -errno otherwise.
  */
-static int spi_nor_read_cr(struct spi_nor *nor, u8 *cr)
+int spi_nor_read_cr(struct spi_nor *nor, u8 *cr)
 {
 	int ret;
 
