@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/reset/fsl,ls1028a-dp-phy-reset.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Freescale LS1028A SoC DisplayPort PHY reset controller
+
+description: |
+  The Freescale LS1028A SoC has exactly one reset for the DisplayPort PHY
+  on the SoC. This is a simple driver which provides a reset controller for
+  it.
+
+maintainers:
+  - Michael Walle <michael@walle.cc>
+
+properties:
+  compatible:
+    const: fsl,ls1028a-dp-phy-reset
+
+  reg:
+    maxItems: 1
+
+  "#reset-cells":
+    const: 1
+
+required:
+  - compatible
+  - reg
+  - "#reset-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    reset-controller@230 {
+        compatible = "fsl,ls1028a-dp-phy-reset";
+        reg = <0x230 0x01>;
+        #reset-cells = <1>;
+    };
