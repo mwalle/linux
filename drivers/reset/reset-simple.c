@@ -161,6 +161,12 @@ static const struct of_device_id reset_simple_dt_ids[] = {
 	{ /* sentinel */ },
 };
 
+static int reset_simple_xlate_none(struct reset_controller_dev *rcdev,
+				   const struct of_phandle_args *reset_spec)
+{
+	return 0;
+}
+
 static int reset_simple_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -190,8 +196,11 @@ static int reset_simple_probe(struct platform_device *pdev)
 
 	if (devdata) {
 		reg_offset = devdata->reg_offset;
-		if (devdata->nr_resets)
+		if (devdata->nr_resets) {
 			data->rcdev.nr_resets = devdata->nr_resets;
+			if (devdata->nr_resets == 1)
+				data->rcdev.of_xlate = reset_simple_xlate_none;
+		}
 		data->active_low = devdata->active_low;
 		data->status_active_low = devdata->status_active_low;
 		data->reset_us = devdata->reset_us;
