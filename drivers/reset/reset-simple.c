@@ -113,12 +113,19 @@ EXPORT_SYMBOL_GPL(reset_simple_ops);
  * @status_active_low: if true, bits read back as cleared while the reset is
  *                     asserted. Otherwise, bits read back as set while the
  *                     reset is asserted.
+ * @reset_us: Minimum delay in microseconds needed that needs to be
+ *            waited for between an assert and a deassert to reset the
+ *            device. If multiple consumers with different delay
+ *            requirements are connected to this controller, it must
+ *            be the largest minimum delay. 0 means that such a delay is
+ *            unknown and the reset operation is unsupported.
  */
 struct reset_simple_devdata {
 	u32 reg_offset;
 	u32 nr_resets;
 	bool active_low;
 	bool status_active_low;
+	unsigned int reset_us;
 };
 
 #define SOCFPGA_NR_BANKS	8
@@ -187,6 +194,7 @@ static int reset_simple_probe(struct platform_device *pdev)
 			data->rcdev.nr_resets = devdata->nr_resets;
 		data->active_low = devdata->active_low;
 		data->status_active_low = devdata->status_active_low;
+		data->reset_us = devdata->reset_us;
 	}
 
 	data->membase += reg_offset;
