@@ -141,6 +141,13 @@ static const struct reset_simple_devdata reset_simple_active_low = {
 	.status_active_low = true,
 };
 
+static const struct reset_simple_devdata reset_simple_ls1028a_dp_phy = {
+	.nr_resets = 1,
+	.active_low = true,
+	.status_active_low = true,
+	.reset_us = 10,
+};
+
 static const struct of_device_id reset_simple_dt_ids[] = {
 	{ .compatible = "altr,stratix10-rst-mgr",
 		.data = &reset_simple_socfpga },
@@ -158,6 +165,8 @@ static const struct of_device_id reset_simple_dt_ids[] = {
 	{ .compatible = "snps,dw-high-reset" },
 	{ .compatible = "snps,dw-low-reset",
 		.data = &reset_simple_active_low },
+	{ .compatible = "fsl,ls1028a-dp-phy-reset",
+		.data = &reset_simple_ls1028a_dp_phy },
 	{ /* sentinel */ },
 };
 
