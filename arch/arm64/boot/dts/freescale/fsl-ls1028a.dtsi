@@ -225,9 +225,18 @@
 		};
 
 		scfg: syscon@1fc0000 {
-			compatible = "fsl,ls1028a-scfg", "syscon";
+			compatible = "fsl,ls1028a-scfg", "syscon", "simple-mfd";
 			reg = <0x0 0x1fc0000 0x0 0x10000>;
 			big-endian;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x0 0x1fc0000 0x10000>;
+
+			rst_dp_phy: reset-controller@230 {
+				compatible = "fsl,ls1028a-dp-phy-reset";
+				reg = <0x230 0x1>;
+				#reset-cells = <0>;
+			};
 		};
 
 		clockgen: clock-controller@1300000 {
