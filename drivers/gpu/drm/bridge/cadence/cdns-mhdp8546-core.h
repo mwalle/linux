@@ -365,6 +365,7 @@ struct cdns_mhdp_device {
 
 	/* This is to protect mailbox communications with the firmware */
 	struct mutex mbox_mutex;
+	struct mutex secure_mbox_mutex;
 
 	/*
 	 * "link_mutex" protects the access to all the link parameters

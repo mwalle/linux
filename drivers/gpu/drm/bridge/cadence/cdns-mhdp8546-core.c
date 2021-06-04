@@ -2443,6 +2443,7 @@ static int cdns_mhdp_probe(struct platform_device *pdev)
 	mhdp->clk = clk;
 	mhdp->dev = dev;
 	mutex_init(&mhdp->mbox_mutex);
+	mutex_init(&mhdp->secure_mbox_mutex);
 	mutex_init(&mhdp->link_mutex);
 	spin_lock_init(&mhdp->start_lock);
 

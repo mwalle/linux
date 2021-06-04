@@ -19,7 +19,7 @@ static int cdns_mhdp_secure_mailbox_read(struct cdns_mhdp_device *mhdp)
 {
 	int ret, empty;
 
-	WARN_ON(!mutex_is_locked(&mhdp->mbox_mutex));
+	WARN_ON(!mutex_is_locked(&mhdp->secure_mbox_mutex));
 
 	ret = readx_poll_timeout(readl, mhdp->sapb_regs + CDNS_MAILBOX_EMPTY,
 				 empty, !empty, MAILBOX_RETRY_US,
@@ -35,7 +35,7 @@ static int cdns_mhdp_secure_mailbox_write(struct cdns_mhdp_device *mhdp,
 {
 	int ret, full;
 
-	WARN_ON(!mutex_is_locked(&mhdp->mbox_mutex));
+	WARN_ON(!mutex_is_locked(&mhdp->secure_mbox_mutex));
 
 	ret = readx_poll_timeout(readl, mhdp->sapb_regs + CDNS_MAILBOX_FULL,
 				 full, !full, MAILBOX_RETRY_US,
@@ -131,7 +131,7 @@ static int cdns_mhdp_hdcp_get_status(struct cdns_mhdp_device *mhdp,
 	u8 hdcp_status[HDCP_STATUS_SIZE];
 	int ret;
 
-	mutex_lock(&mhdp->mbox_mutex);
+	mutex_lock(&mhdp->secure_mbox_mutex);
 	ret = cdns_mhdp_secure_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 					    HDCP_TRAN_STATUS_CHANGE, 0, NULL);
 	if (ret)
@@ -151,7 +151,7 @@ static int cdns_mhdp_hdcp_get_status(struct cdns_mhdp_device *mhdp,
 	*hdcp_port_status = ((u16)(hdcp_status[0] << 8) | hdcp_status[1]);
 
 err_get_hdcp_status:
-	mutex_unlock(&mhdp->mbox_mutex);
+	mutex_unlock(&mhdp->secure_mbox_mutex);
 
 	return ret;
 }
@@ -172,11 +172,11 @@ static int cdns_mhdp_hdcp_rx_id_valid_response(struct cdns_mhdp_device *mhdp,
 {
 	int ret;
 
-	mutex_lock(&mhdp->mbox_mutex);
+	mutex_lock(&mhdp->secure_mbox_mutex);
 	ret = cdns_mhdp_secure_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 					    HDCP_TRAN_RESPOND_RECEIVER_ID_VALID,
 					    1, &valid);
-	mutex_unlock(&mhdp->mbox_mutex);
+	mutex_unlock(&mhdp->secure_mbox_mutex);
 
 	return ret;
 }
@@ -188,7 +188,7 @@ static int cdns_mhdp_hdcp_rx_id_valid(struct cdns_mhdp_device *mhdp,
 	u8 status;
 	int ret;
 
-	mutex_lock(&mhdp->mbox_mutex);
+	mutex_lock(&mhdp->secure_mbox_mutex);
 	ret = cdns_mhdp_secure_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 					    HDCP_TRAN_IS_REC_ID_VALID, 0, NULL);
 	if (ret)
@@ -209,7 +209,7 @@ static int cdns_mhdp_hdcp_rx_id_valid(struct cdns_mhdp_device *mhdp,
 	ret = cdns_mhdp_secure_mailbox_recv_data(mhdp, hdcp_rx_id, 5 * *recv_num);
 
 err_rx_id_valid:
-	mutex_unlock(&mhdp->mbox_mutex);
+	mutex_unlock(&mhdp->secure_mbox_mutex);
 
 	return ret;
 }
@@ -219,10 +219,10 @@ static int cdns_mhdp_hdcp_km_stored_resp(struct cdns_mhdp_device *mhdp,
 {
 	int ret;
 
-	mutex_lock(&mhdp->mbox_mutex);
+	mutex_lock(&mhdp->secure_mbox_mutex);
 	ret = cdns_mhdp_secure_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 					    HDCP2X_TX_RESPOND_KM, size, km);
-	mutex_unlock(&mhdp->mbox_mutex);
+	mutex_unlock(&mhdp->secure_mbox_mutex);
 
 	return ret;
 }
@@ -232,7 +232,7 @@ static int cdns_mhdp_hdcp_tx_is_km_stored(struct cdns_mhdp_device *mhdp,
 {
 	int ret;
 
-	mutex_lock(&mhdp->mbox_mutex);
+	mutex_lock(&mhdp->secure_mbox_mutex);
 	ret = cdns_mhdp_secure_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 					    HDCP2X_TX_IS_KM_STORED, 0, NULL);
 	if (ret)
@@ -246,7 +246,7 @@ static int cdns_mhdp_hdcp_tx_is_km_stored(struct cdns_mhdp_device *mhdp,
 
 	ret = cdns_mhdp_secure_mailbox_recv_data(mhdp, resp, size);
 err_is_km_stored:
-	mutex_unlock(&mhdp->mbox_mutex);
+	mutex_unlock(&mhdp->secure_mbox_mutex);
 
 	return ret;
 }
@@ -256,10 +256,10 @@ static int cdns_mhdp_hdcp_tx_config(struct cdns_mhdp_device *mhdp,
 {
 	int ret;
 
-	mutex_lock(&mhdp->mbox_mutex);
+	mutex_lock(&mhdp->secure_mbox_mutex);
 	ret = cdns_mhdp_secure_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 					    HDCP_TRAN_CONFIGURATION, 1, &hdcp_cfg);
-	mutex_unlock(&mhdp->mbox_mutex);
+	mutex_unlock(&mhdp->secure_mbox_mutex);
 
 	return ret;
 }
@@ -503,11 +503,11 @@ int cdns_mhdp_hdcp_set_lc(struct cdns_mhdp_device *mhdp, u8 *val)
 {
 	int ret;
 
-	mutex_lock(&mhdp->mbox_mutex);
+	mutex_lock(&mhdp->secure_mbox_mutex);
 	ret = cdns_mhdp_secure_mailbox_send(mhdp, MB_MODULE_ID_HDCP_GENERAL,
 					    HDCP_GENERAL_SET_LC_128,
 					    16, val);
-	mutex_unlock(&mhdp->mbox_mutex);
+	mutex_unlock(&mhdp->secure_mbox_mutex);
 
 	return ret;
 }
@@ -518,11 +518,11 @@ cdns_mhdp_hdcp_set_public_key_param(struct cdns_mhdp_device *mhdp,
 {
 	int ret;
 
-	mutex_lock(&mhdp->mbox_mutex);
+	mutex_lock(&mhdp->secure_mbox_mutex);
 	ret = cdns_mhdp_secure_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 					    HDCP2X_TX_SET_PUBLIC_KEY_PARAMS,
 					    sizeof(*val), (u8 *)val);
-	mutex_unlock(&mhdp->mbox_mutex);
+	mutex_unlock(&mhdp->secure_mbox_mutex);
 
 	return ret;
 }
