@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-obj-$(CONFIG_DRM_CDNS_MHDP_COMMON) += cdns-mhdp-mbox.o
+obj-$(CONFIG_DRM_CDNS_MHDP_COMMON) += cdns-mhdp-mbox.o cdns-mhdp-misc.o
 
 obj-$(CONFIG_DRM_CDNS_MHDP8546) += cdns-mhdp8546.o
 cdns-mhdp8546-y := cdns-mhdp8546-core.o cdns-mhdp8546-hdcp.o
