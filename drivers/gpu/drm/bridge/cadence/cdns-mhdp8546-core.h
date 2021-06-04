@@ -29,26 +29,6 @@ struct phy;
 #define FW_NAME					"cadence/mhdp8546.bin"
 #define CDNS_MHDP_IMEM				0x10000
 
-struct cdns_mhdp_link {
-	unsigned char revision;
-	unsigned int rate;
-	unsigned int num_lanes;
-	unsigned long capabilities;
-};
-
-struct cdns_mhdp_host {
-	unsigned int link_rate;
-	u8 lanes_cnt;
-	u8 volt_swing;
-	u8 pre_emphasis;
-	u8 pattern_supp;
-	u8 lane_mapping;
-	bool fast_link;
-	bool enhanced;
-	bool scrambler;
-	bool ssc;
-};
-
 struct cdns_mhdp_sink {
 	unsigned int link_rate;
 	u8 lanes_cnt;

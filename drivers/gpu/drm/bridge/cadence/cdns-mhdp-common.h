@@ -14,6 +14,8 @@
 #include <linux/bits.h>
 #include <linux/mutex.h>
 
+#include <drm/drm_dp_helper.h>
+
 /* Register offsets */
 #define CDNS_APB_CTRL				0x00000
 #define CDNS_CPU_STALL				BIT(3)
@@ -273,6 +275,26 @@ struct cdns_mhdp_mbox {
 	struct mutex mutex;
 };
 
+struct cdns_mhdp_host {
+	unsigned int link_rate;
+	u8 lanes_cnt;
+	u8 volt_swing;
+	u8 pre_emphasis;
+	u8 pattern_supp;
+	u8 lane_mapping;
+	bool fast_link;
+	bool enhanced;
+	bool scrambler;
+	bool ssc;
+};
+
+struct cdns_mhdp_link {
+	unsigned char revision;
+	unsigned int rate;
+	unsigned int num_lanes;
+	unsigned long capabilities;
+};
+
 int cdns_mhdp_reg_read(struct cdns_mhdp_mbox *mbox, u32 addr, u32 *value);
 int cdns_mhdp_reg_write(struct cdns_mhdp_mbox *mbox, u32 addr, u32 val);
 int cdns_mhdp_reg_write_bit(struct cdns_mhdp_mbox *mbox,
@@ -290,5 +312,14 @@ int cdns_mhdp_adjust_lt(struct cdns_mhdp_mbox *mbox, unsigned int nlanes,
 			u8 link_status[DP_LINK_STATUS_SIZE]);
 void cdns_mhdp_mailbox_init(struct cdns_mhdp_mbox *mbox, struct device *dev,
 			    void __iomem *regs);
+
+int cdns_mhdp_link_power_up(struct drm_dp_aux *aux, struct cdns_mhdp_link *link);
+int cdns_mhdp_link_power_down(struct drm_dp_aux *aux,
+			      struct cdns_mhdp_link *link);
+int cdns_mhdp_link_configure(struct drm_dp_aux *aux,
+			     struct cdns_mhdp_link *link);
+ssize_t cdns_mhdp_aux_transfer(struct cdns_mhdp_mbox *mbox,
+			       struct drm_dp_aux *aux,
+			       struct drm_dp_aux_msg *msg);
 
 #endif
