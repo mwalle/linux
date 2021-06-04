@@ -207,18 +207,18 @@ out:
 }
 
 static
-int cdns_mhdp_reg_write(struct cdns_mhdp_device *mhdp, u16 addr, u32 val)
+int cdns_mhdp_reg_write(struct cdns_mhdp_device *mhdp, u32 addr, u32 val)
 {
-	u8 msg[6];
+	u8 msg[8];
 	int ret;
 
-	put_unaligned_be16(addr, msg);
-	put_unaligned_be32(val, msg + 2);
+	put_unaligned_be32(addr, msg);
+	put_unaligned_be32(val, msg + 4);
 
 	mutex_lock(&mhdp->mbox_mutex);
 
-	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
-				     DPTX_WRITE_REGISTER, sizeof(msg), msg);
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_GENERAL,
+				     GENERAL_REGISTER_WRITE, sizeof(msg), msg);
 
 	mutex_unlock(&mhdp->mbox_mutex);
 
