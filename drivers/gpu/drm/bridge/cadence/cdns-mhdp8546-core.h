@@ -38,12 +38,6 @@ struct cdns_mhdp_sink {
 	bool ssc;
 };
 
-struct cdns_mhdp_display_fmt {
-	u32 color_format;
-	u32 bpc;
-	bool y_only;
-};
-
 /*
  * These enums present MHDP hw initialization state
  * Legal state transitions are:

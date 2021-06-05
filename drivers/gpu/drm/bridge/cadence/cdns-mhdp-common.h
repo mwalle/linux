@@ -295,6 +295,12 @@ struct cdns_mhdp_link {
 	unsigned long capabilities;
 };
 
+struct cdns_mhdp_display_fmt {
+	u32 color_format;
+	u32 bpc;
+	bool y_only;
+};
+
 int cdns_mhdp_reg_read(struct cdns_mhdp_mbox *mbox, u32 addr, u32 *value);
 int cdns_mhdp_reg_write(struct cdns_mhdp_mbox *mbox, u32 addr, u32 val);
 int cdns_mhdp_reg_write_bit(struct cdns_mhdp_mbox *mbox,
@@ -321,5 +327,9 @@ int cdns_mhdp_link_configure(struct drm_dp_aux *aux,
 ssize_t cdns_mhdp_aux_transfer(struct cdns_mhdp_mbox *mbox,
 			       struct drm_dp_aux *aux,
 			       struct drm_dp_aux_msg *msg);
+u32 cdns_mhdp_get_bpp(struct cdns_mhdp_display_fmt *fmt);
+void cdns_mhdp_configure_video(struct cdns_mhdp_mbox *mbox, int stream_id,
+			       struct cdns_mhdp_display_fmt *display_fmt,
+			       const struct drm_display_mode *mode);
 
 #endif
