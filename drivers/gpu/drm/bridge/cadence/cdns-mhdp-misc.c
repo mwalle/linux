@@ -252,8 +252,9 @@ void cdns_mhdp_configure_video(struct cdns_mhdp_mbox *mbox, int stream_id,
 	bnd_hsync2vsync = CDNS_IP_BYPASS_V_INTERFACE;
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		bnd_hsync2vsync |= CDNS_IP_DET_INTERLACE_FORMAT;
-
-	cdns_mhdp_reg_write(mbox, CDNS_BND_HSYNC2VSYNC(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_BND_HSYNC2VSYNC(0)
+					    : CDNS_BND_HSYNC2VSYNC(stream_id),
 			    bnd_hsync2vsync);
 
 	hsync2vsync_pol_ctrl = 0;
@@ -261,11 +262,15 @@ void cdns_mhdp_configure_video(struct cdns_mhdp_mbox *mbox, int stream_id,
 		hsync2vsync_pol_ctrl |= CDNS_H2V_HSYNC_POL_ACTIVE_LOW;
 	if (mode->flags & DRM_MODE_FLAG_NVSYNC)
 		hsync2vsync_pol_ctrl |= CDNS_H2V_VSYNC_POL_ACTIVE_LOW;
-	cdns_mhdp_reg_write(mbox, CDNS_HSYNC2VSYNC_POL_CTRL(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_HSYNC2VSYNC_POL_CTRL(0)
+					    : CDNS_HSYNC2VSYNC_POL_CTRL(stream_id),
 			    hsync2vsync_pol_ctrl);
 
 	cdns_mhdp_reg_write(mbox,
-			    CDNS_DP_MST_FRAMER_PXL_REPR(stream_id), pxl_repr);
+			    (stream_id < 0) ? CDNS_DP_FRAMER_PXL_REPR
+					    : CDNS_DP_MST_FRAMER_PXL_REPR(stream_id),
+			    pxl_repr);
 
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		dp_framer_sp |= CDNS_DP_FRAMER_INTERLACE;
@@ -273,22 +278,28 @@ void cdns_mhdp_configure_video(struct cdns_mhdp_mbox *mbox, int stream_id,
 		dp_framer_sp |= CDNS_DP_FRAMER_HSYNC_POL_LOW;
 	if (mode->flags & DRM_MODE_FLAG_NVSYNC)
 		dp_framer_sp |= CDNS_DP_FRAMER_VSYNC_POL_LOW;
-	cdns_mhdp_reg_write(mbox, CDNS_DP_MST_FRAMER_SP(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_DP_FRAMER_SP
+					    : CDNS_DP_MST_FRAMER_SP(stream_id),
 			    dp_framer_sp);
 
 	front_porch = mode->crtc_hsync_start - mode->crtc_hdisplay;
 	back_porch = mode->crtc_htotal - mode->crtc_hsync_end;
 	cdns_mhdp_reg_write(mbox,
-			    CDNS_DP_MST_FRONT_BACK_PORCH(stream_id),
+			    (stream_id < 0) ? CDNS_DP_FRONT_BACK_PORCH
+					    : CDNS_DP_MST_FRONT_BACK_PORCH(stream_id),
 			    CDNS_DP_FRONT_PORCH(front_porch) |
 			    CDNS_DP_BACK_PORCH(back_porch));
 
-	cdns_mhdp_reg_write(mbox, CDNS_DP_MST_BYTE_COUNT(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_DP_BYTE_COUNT
+					    : CDNS_DP_MST_BYTE_COUNT(stream_id),
 			    mode->crtc_hdisplay * bpp / 8);
 
 	msa_h0 = mode->crtc_htotal - mode->crtc_hsync_start;
 	cdns_mhdp_reg_write(mbox,
-			    CDNS_DP_MST_MSA_HORIZONTAL_0(stream_id),
+			    (stream_id < 0) ? CDNS_DP_MSA_HORIZONTAL_0
+					    : CDNS_DP_MST_MSA_HORIZONTAL_0(stream_id),
 			    CDNS_DP_MSAH0_H_TOTAL(mode->crtc_htotal) |
 			    CDNS_DP_MSAH0_HSYNC_START(msa_h0));
 
@@ -298,11 +309,14 @@ void cdns_mhdp_configure_video(struct cdns_mhdp_mbox *mbox, int stream_id,
 	if (mode->flags & DRM_MODE_FLAG_NHSYNC)
 		msa_horizontal_1 |= CDNS_DP_MSAH1_HSYNC_POL_LOW;
 	cdns_mhdp_reg_write(mbox,
-			    CDNS_DP_MST_MSA_HORIZONTAL_1(stream_id),
+			    (stream_id < 0) ? CDNS_DP_MSA_HORIZONTAL_1
+					    : CDNS_DP_MST_MSA_HORIZONTAL_1(stream_id),
 			    msa_horizontal_1);
 
 	msa_v0 = mode->crtc_vtotal - mode->crtc_vsync_start;
-	cdns_mhdp_reg_write(mbox, CDNS_DP_MST_MSA_VERTICAL_0(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_DP_MSA_VERTICAL_0
+					    : CDNS_DP_MST_MSA_VERTICAL_0(stream_id),
 			    CDNS_DP_MSAV0_V_TOTAL(mode->crtc_vtotal) |
 			    CDNS_DP_MSAV0_VSYNC_START(msa_v0));
 
@@ -311,7 +325,9 @@ void cdns_mhdp_configure_video(struct cdns_mhdp_mbox *mbox, int stream_id,
 			 CDNS_DP_MSAV1_VDISP_WIDTH(mode->crtc_vdisplay);
 	if (mode->flags & DRM_MODE_FLAG_NVSYNC)
 		msa_vertical_1 |= CDNS_DP_MSAV1_VSYNC_POL_LOW;
-	cdns_mhdp_reg_write(mbox, CDNS_DP_MST_MSA_VERTICAL_1(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_DP_MSA_VERTICAL_1
+					    : CDNS_DP_MST_MSA_VERTICAL_1(stream_id),
 			    msa_vertical_1);
 
 	if ((mode->flags & DRM_MODE_FLAG_INTERLACE) &&
@@ -323,14 +339,20 @@ void cdns_mhdp_configure_video(struct cdns_mhdp_mbox *mbox, int stream_id,
 	if (pxlfmt == DRM_COLOR_FORMAT_YCRCB420)
 		misc1 = CDNS_DP_TEST_VSC_SDP;
 
-	cdns_mhdp_reg_write(mbox, CDNS_DP_MST_MSA_MISC(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_DP_MSA_MISC
+					    : CDNS_DP_MST_MSA_MISC(stream_id),
 			    misc0 | (misc1 << 8));
 
-	cdns_mhdp_reg_write(mbox, CDNS_DP_MST_HORIZONTAL(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_DP_HORIZONTAL
+					    : CDNS_DP_MST_HORIZONTAL(stream_id),
 			    CDNS_DP_H_HSYNC_WIDTH(hsync) |
 			    CDNS_DP_H_H_TOTAL(mode->crtc_hdisplay));
 
-	cdns_mhdp_reg_write(mbox, CDNS_DP_MST_VERTICAL_0(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_DP_VERTICAL_0
+					    : CDNS_DP_MST_VERTICAL_0(stream_id),
 			    CDNS_DP_V0_VHEIGHT(mode->crtc_vdisplay) |
 			    CDNS_DP_V0_VSTART(msa_v0));
 
@@ -339,11 +361,15 @@ void cdns_mhdp_configure_video(struct cdns_mhdp_mbox *mbox, int stream_id,
 	    mode->crtc_vtotal % 2 == 0)
 		dp_vertical_1 |= CDNS_DP_V1_VTOTAL_EVEN;
 
-	cdns_mhdp_reg_write(mbox, CDNS_DP_MST_VERTICAL_1(stream_id),
+	cdns_mhdp_reg_write(mbox,
+			    (stream_id < 0) ? CDNS_DP_VERTICAL_1
+					    : CDNS_DP_MST_VERTICAL_1(stream_id),
 			    dp_vertical_1);
 
-	cdns_mhdp_reg_write_bit(mbox, CDNS_DP_MST_VB_ID(stream_id), 2,
-				1, (mode->flags & DRM_MODE_FLAG_INTERLACE) ?
+	cdns_mhdp_reg_write_bit(mbox,
+				(stream_id < 0) ? CDNS_DP_VB_ID
+						: CDNS_DP_MST_VB_ID(stream_id),
+				2, 1, (mode->flags & DRM_MODE_FLAG_INTERLACE) ?
 				CDNS_DP_VB_ID_INTERLACED : 0);
 
 	ret = cdns_mhdp_reg_read(mbox, CDNS_DP_FRAMER_GLOBAL_CONFIG,
