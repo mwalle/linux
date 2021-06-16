@@ -933,6 +933,18 @@
 			reg = <0x0 0xf1f0000 0x0 0x10000>;
 			#clock-cells = <0>;
 			clocks = <&osc_27m>;
+
+			/*
+			 * Due to a silicon bug we need to assign a static
+			 * pixel clock rate here. This will cover FHD and
+			 * 4k resolutions. It might be overridden in a
+			 * specific board dts if that board uses a
+			 * different resolution.
+			 * This means that the SoC is not able to switch
+			 * resultions during runtime.
+			 */
+			assigned-clocks = <&dpclk>;
+			assigned-clock-rates = <148500000>;
 		};
 
 		tmu: tmu@1f80000 {
