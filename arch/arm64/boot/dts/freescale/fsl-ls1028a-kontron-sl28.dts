@@ -62,10 +62,26 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	connector {
+		compatible = "dp-connector";
+		label = "DP_0";
+		type = "full-size";
+
+		port {
+			dp0_in: endpoint {
+				remote-endpoint = <&dp0_out>;
+			};
+		};
+	};
 };
 
 &can0 {
 	status = "okay";
+};
+
+&dp0_out {
+	remote-endpoint = <&dp0_in>;
 };
 
 &dspi2 {
