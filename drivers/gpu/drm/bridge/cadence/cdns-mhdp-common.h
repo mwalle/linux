@@ -18,6 +18,9 @@
 
 /* Register offsets */
 #define CDNS_APB_CTRL				0x00000
+#define CDNS_XT_RESET				BIT(0)
+#define CDNS_IRAM_PATH				BIT(1)
+#define CDNS_DRAM_PATH				BIT(2)
 #define CDNS_CPU_STALL				BIT(3)
 
 #define CDNS_MAILBOX_FULL			0x00008
@@ -101,6 +104,12 @@
 #define CDNS_DP_FRAMER_TU_VS(x)			((x) & GENMASK(5, 0))
 #define CDNS_DP_FRAMER_TU_CNT_RST_EN		BIT(15)
 
+#define CDNS_DP_FRAMER_PXL_REPR			0x0220C
+#define CDNS_DP_FRAMER_SP			0x02210
+
+#define CDNS_DP_LINE_THRESH			0x02254
+#define CDNS_DP_VB_ID				0x02258
+
 #define CDNS_DP_MTPH_CONTROL			0x02264
 #define CDNS_DP_MTPH_ECF_EN			BIT(0)
 #define CDNS_DP_MTPH_ACT_EN			BIT(1)
@@ -108,6 +117,24 @@
 
 #define CDNS_DP_MTPH_STATUS			0x0226C
 #define CDNS_DP_MTPH_ACT_STATUS			BIT(0)
+
+#define CDNS_DP_FRONT_BACK_PORCH		0x02278
+#define CDNS_DP_BYTE_COUNT			0x0227C
+#define CDNS_DP_MSA_HORIZONTAL_0		0x02280
+#define CDNS_DP_MSA_HORIZONTAL_1		0x02284
+#define CDNS_DP_MSA_VERTICAL_0			0x02288
+#define CDNS_DP_MSA_VERTICAL_1			0x0228C
+#define CDNS_DP_MSA_MISC			0x02290
+#define CDNS_DP_STREAM_CONFIG			0x02294
+#define CDNS_DP_AUDIO_PACK_STATUS		0x02298
+#define CDNS_DP_VIF_STATUS			0x0229C
+#define CDNS_DP_PCK_STUFF_STATUS_0		0x022A0
+#define CDNS_DP_PCK_STUFF_STATUS_1		0x022A4
+#define CDNS_DP_INFO_PACK_STATUS		0x022A8
+#define CDNS_DP_RATE_GOVERNOR_STATUS		0x022AC
+#define CDNS_DP_HORIZONTAL			0x022B0
+#define CDNS_DP_VERTICAL_0			0x022B4
+#define CDNS_DP_VERTICAL_1			0x022B8
 
 #define CDNS_DP_LANE_EN				0x02300
 #define CDNS_DP_LANE_EN_LANES(x)		GENMASK((x) - 1, 0)
@@ -216,6 +243,7 @@
 #define GENERAL_REGISTER_READ			0x07
 
 #define DPTX_SET_POWER_MNG			0x00
+#define DPTX_SET_HOST_CAPABILITIES		0x01
 #define DPTX_GET_EDID				0x02
 #define DPTX_READ_DPCD				0x03
 #define DPTX_WRITE_DPCD				0x04
@@ -223,13 +251,33 @@
 #define DPTX_WRITE_REGISTER			0x06
 #define DPTX_READ_REGISTER			0x07
 #define DPTX_WRITE_FIELD			0x08
+#define DPTX_TRAINING_CONTROL			0x09
 #define DPTX_READ_EVENT				0x0a
+#define DPTX_READ_LINK_STAT			0x0b
+#define DPTX_SET_VIDEO				0x0c
+#define DPTX_SET_AUDIO				0x0d
 #define DPTX_GET_LAST_AUX_STAUS			0x0e
 #define DPTX_HPD_STATE				0x11
 #define DPTX_ADJUST_LT				0x12
 
 #define FW_STANDBY				0
 #define FW_ACTIVE				1
+
+#define LINK_TRAINING_NOT_ACTIVE		0
+#define LINK_TRAINING_RUN			1
+#define LINK_TRAINING_RESTART			2
+
+#define CONTROL_VIDEO_IDLE			0
+#define CONTROL_VIDEO_VALID			1
+
+#define	FULL_LT_STARTED				BIT(0)
+#define FASE_LT_STARTED				BIT(1)
+#define CLK_RECOVERY_FINISHED			BIT(2)
+#define EQ_PHASE_FINISHED			BIT(3)
+#define FASE_LT_START_FINISHED			BIT(4)
+#define CLK_RECOVERY_FAILED			BIT(5)
+#define EQ_PHASE_FAILED				BIT(6)
+#define FASE_LT_FAILED				BIT(7)
 
 /* HPD */
 #define DPTX_READ_EVENT_HPD_TO_HIGH             BIT(0)
@@ -316,6 +364,12 @@ int cdns_mhdp_read_hpd_event(struct cdns_mhdp_mbox *mbox);
 int cdns_mhdp_adjust_lt(struct cdns_mhdp_mbox *mbox, unsigned int nlanes,
 			unsigned int udelay, const u8 *lanes_data,
 			u8 link_status[DP_LINK_STATUS_SIZE]);
+int cdns_mhdp_set_host_cap(struct cdns_mhdp_mbox *mbox,
+			   struct cdns_mhdp_host *host);
+int cdns_mhdp_training_start(struct cdns_mhdp_mbox *mbox);
+int cdns_mhdp_get_training_status(struct cdns_mhdp_mbox *mbox,
+				  struct cdns_mhdp_link *link);
+int cdns_mhdp_set_video_status(struct cdns_mhdp_mbox *mbox, int active);
 void cdns_mhdp_mailbox_init(struct cdns_mhdp_mbox *mbox, struct device *dev,
 			    void __iomem *regs);
 
@@ -331,5 +385,31 @@ u32 cdns_mhdp_get_bpp(struct cdns_mhdp_display_fmt *fmt);
 void cdns_mhdp_configure_video(struct cdns_mhdp_mbox *mbox, int stream_id,
 			       struct cdns_mhdp_display_fmt *display_fmt,
 			       const struct drm_display_mode *mode);
+
+/* TODO(mw) needed ? */
+
+/* capability */
+#define AUX_HOST_INVERT				3
+#define FAST_LT_NOT_SUPPORT			0
+#define ENHANCED				1
+#define SCRAMBLER_EN				BIT(4)
+
+#define VOLTAGE_LEVEL_0				0
+#define VOLTAGE_LEVEL_1				1
+#define VOLTAGE_LEVEL_2				2
+#define VOLTAGE_LEVEL_3				3
+
+#define PRE_EMPHASIS_LEVEL_0			0
+#define PRE_EMPHASIS_LEVEL_1			1
+#define PRE_EMPHASIS_LEVEL_2			2
+#define PRE_EMPHASIS_LEVEL_3			3
+
+enum pattern_set {
+	PTS1		= BIT(0),
+	PTS2		= BIT(1),
+	PTS3		= BIT(2),
+	PTS4		= BIT(3),
+	DP_NONE		= BIT(4)
+};
 
 #endif

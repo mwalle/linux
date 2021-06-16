@@ -11,10 +11,11 @@
  *          Jyri Sarha <jsarha@ti.com>
  */
 
-#include <linux/mutex.h>
-#include <linux/io.h>
 #include <asm/unaligned.h>
+#include <linux/debugfs.h>
+#include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/mutex.h>
 
 #include "cdns-mhdp-common.h"
 
@@ -490,12 +491,230 @@ out:
 }
 EXPORT_SYMBOL_GPL(cdns_mhdp_adjust_lt);
 
+int cdns_mhdp_set_host_cap(struct cdns_mhdp_mbox *mbox,
+			   struct cdns_mhdp_host *host)
+{
+	u8 msg[8];
+	int ret;
+
+	msg[0] = drm_dp_link_rate_to_bw_code(host->link_rate);
+	msg[1] = host->lanes_cnt;
+	if (host->scrambler)
+		msg[1] |= SCRAMBLER_EN;
+	msg[2] = host->volt_swing;
+	msg[3] = host->pre_emphasis;
+	msg[4] = host->pattern_supp;
+	msg[5] = host->fast_link ? CDNS_FAST_LINK_TRAINING : 0;
+	msg[6] = host->lane_mapping;
+	msg[7] = host->enhanced ? DP_LINK_CAP_ENHANCED_FRAMING : 0;
+
+	mutex_lock(&mbox->mutex);
+	ret = cdns_mhdp_mailbox_send(mbox, MB_MODULE_ID_DP_TX,
+				     DPTX_SET_HOST_CAPABILITIES,
+				     sizeof(msg), msg);
+	mutex_unlock(&mbox->mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(cdns_mhdp_set_host_cap);
+
+#define LINK_TRAINING_RETRY_MS		20
+#define LINK_TRAINING_TIMEOUT_MS	500
+
+int cdns_mhdp_training_start(struct cdns_mhdp_mbox *mbox)
+{
+	unsigned long timeout;
+	u8 msg, event[2];
+	int ret;
+
+	msg = LINK_TRAINING_RUN;
+
+	mutex_lock(&mbox->mutex);
+
+	/* start training */
+	ret = cdns_mhdp_mailbox_send(mbox, MB_MODULE_ID_DP_TX,
+				     DPTX_TRAINING_CONTROL, sizeof(msg), &msg);
+	if (ret)
+		goto err_training_start;
+
+	timeout = jiffies + msecs_to_jiffies(LINK_TRAINING_TIMEOUT_MS);
+	while (time_before(jiffies, timeout)) {
+		msleep(LINK_TRAINING_RETRY_MS);
+		ret = cdns_mhdp_mailbox_send(mbox, MB_MODULE_ID_DP_TX,
+					     DPTX_READ_EVENT, 0, NULL);
+		if (ret)
+			goto err_training_start;
+
+		ret = cdns_mhdp_mailbox_recv_header(mbox,
+							 MB_MODULE_ID_DP_TX,
+							 DPTX_READ_EVENT,
+							 sizeof(event));
+		if (ret)
+			goto err_training_start;
+
+		ret = cdns_mhdp_mailbox_recv_data(mbox, event,
+						     sizeof(event));
+		if (ret)
+			goto err_training_start;
+
+		if (event[1] & EQ_PHASE_FINISHED) {
+			mutex_unlock(&mbox->mutex);
+			return 0;
+		}
+	}
+
+	ret = -ETIMEDOUT;
+
+err_training_start:
+	mutex_unlock(&mbox->mutex);
+	dev_err(mbox->dev, "training failed: %d\n", ret);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(cdns_mhdp_training_start);
+
+int cdns_mhdp_get_training_status(struct cdns_mhdp_mbox *mbox,
+				  struct cdns_mhdp_link *link)
+{
+	u8 status[10];
+	int ret;
+
+	mutex_lock(&mbox->mutex);
+	ret = cdns_mhdp_mailbox_send(mbox, MB_MODULE_ID_DP_TX,
+				     DPTX_READ_LINK_STAT, 0, NULL);
+	if (ret)
+		goto err_get_training_status;
+
+	ret = cdns_mhdp_mailbox_recv_header(mbox, MB_MODULE_ID_DP_TX,
+						 DPTX_READ_LINK_STAT,
+						 sizeof(status));
+	if (ret)
+		goto err_get_training_status;
+
+	ret = cdns_mhdp_mailbox_recv_data(mbox, status, sizeof(status));
+	if (ret)
+		goto err_get_training_status;
+
+	link->rate = drm_dp_bw_code_to_link_rate(status[0]);
+	link->num_lanes = status[1];
+
+err_get_training_status:
+	mutex_unlock(&mbox->mutex);
+	if (ret)
+		dev_err(mbox->dev, "get training status failed: %d\n", ret);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(cdns_mhdp_get_training_status);
+
+int cdns_mhdp_set_video_status(struct cdns_mhdp_mbox *mbox, int active)
+{
+	u8 msg;
+	int ret;
+
+	msg = !!active;
+
+	mutex_lock(&mbox->mutex);
+	ret = cdns_mhdp_mailbox_send(mbox, MB_MODULE_ID_DP_TX,
+				     DPTX_SET_VIDEO, sizeof(msg), &msg);
+	mutex_unlock(&mbox->mutex);
+	if (ret)
+		dev_err(mbox->dev, "set video status failed: %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(cdns_mhdp_set_video_status);
+
+static ssize_t cdns_mhdp_set_reg(struct file *file,
+				 const char __user *user_buf,
+				 size_t count, loff_t *ppos)
+{
+	char buf[32];
+	size_t buf_size;
+	char *start = buf;
+	u32 reg, value;
+	struct cdns_mhdp_mbox *mbox = file->private_data;
+	int ret;
+
+	buf_size = min(count, (sizeof(buf) - 1));
+	if (copy_from_user(buf, user_buf, buf_size))
+		return -EFAULT;
+	buf[buf_size] = 0;
+
+	while (*start == ' ')
+		start++;
+	reg = simple_strtoul(start, &start, 16);
+	while (*start == ' ')
+		start++;
+	if (kstrtou32(start, 16, &value))
+		return -EINVAL;
+
+	ret = cdns_mhdp_reg_write(mbox, reg, value);
+	if (ret < 0)
+		return ret;
+	return buf_size;
+}
+
+static const struct file_operations cdns_mhdp_set_reg_fops = {
+	.open = simple_open,
+	.write = cdns_mhdp_set_reg,
+	.llseek = noop_llseek,
+};
+
+static ssize_t cdns_mhdp_get_reg(struct file *file,
+				 const char __user *user_buf,
+				 size_t count, loff_t *ppos)
+{
+	char buf[32];
+	size_t buf_size;
+	char *start = buf;
+	u32 reg, value;
+	struct cdns_mhdp_mbox *mbox = file->private_data;
+	int ret;
+
+	buf_size = min(count, (sizeof(buf) - 1));
+	if (copy_from_user(buf, user_buf, buf_size))
+		return -EFAULT;
+	buf[buf_size] = 0;
+
+	while (*start == ' ')
+		start++;
+	if (kstrtou32(start, 16, &reg))
+		return -EINVAL;
+
+	ret = cdns_mhdp_reg_read(mbox, reg, &value);
+	if (ret < 0)
+		return ret;
+	printk("%s %08x %08x\n", __func__, reg, value);
+
+	return buf_size;
+}
+
+static const struct file_operations cdns_mhdp_get_reg_fops = {
+	.open = simple_open,
+	.write = cdns_mhdp_get_reg,
+	.llseek = noop_llseek,
+};
+
+static int cdns_mhdp_debugfs_init(struct cdns_mhdp_mbox *mbox)
+{
+	struct dentry *root;
+
+	/* TODO(mw) */
+	root = debugfs_create_dir("cdns_mhdp", NULL);
+
+	debugfs_create_file("get_reg", S_IWUSR, root, mbox, &cdns_mhdp_get_reg_fops);
+	debugfs_create_file("set_reg", S_IWUSR, root, mbox, &cdns_mhdp_set_reg_fops);
+
+	return 0;
+}
+
 void cdns_mhdp_mailbox_init(struct cdns_mhdp_mbox *mbox, struct device *dev,
 			    void __iomem *regs)
 {
 	mbox->dev = dev;
 	mbox->regs = regs;
 	mutex_init(&mbox->mutex);
+
+	cdns_mhdp_debugfs_init(mbox);
 }
 EXPORT_SYMBOL_GPL(cdns_mhdp_mailbox_init);
 
