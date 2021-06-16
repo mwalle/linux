@@ -818,7 +818,7 @@
 
 			port {
 				dpi0_out: endpoint {
-
+					remote-endpoint = <&dpi0_in>;
 				};
 			};
 		};
@@ -977,6 +977,37 @@
 			 */
 			assigned-clocks = <&dpclk>;
 			assigned-clock-rates = <148500000>;
+		};
+
+		display@f200000 {
+			compatible = "fsl,ls1028a-mhdp8501";
+			reg = <0x0 0xf200000 0x0 0x100000>;
+			interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clockgen QORIQ_CLK_HWACCEL 2>,
+				 <&dpclk>;
+			clock-names = "bus", "pxlclk";
+			resets = <&rst_dp_phy>;
+			reset-names = "phy";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					dpi0_in: endpoint {
+						remote-endpoint = <&dpi0_out>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					dp0_out: endpoint {
+					};
+				};
+			};
 		};
 
 		tmu: tmu@1f80000 {
