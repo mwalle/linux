@@ -127,3 +127,7 @@
 		#clock-cells = <0>;
 	};
 };
+
+&usb0 {
+	dr_mode = "host";
+};
