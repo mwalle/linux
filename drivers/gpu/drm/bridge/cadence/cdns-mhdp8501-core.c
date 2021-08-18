@@ -197,7 +197,7 @@ static void cdns_mhdp8501_enable(struct drm_bridge *bridge)
 
 	ret = drm_dp_read_dpcd_caps(&mhdp->aux, dpcd);
 	if (ret < 0)
-		return ret;
+		return;
 
 	mhdp->link.revision = dpcd[0];
 	mhdp->link.rate = drm_dp_bw_code_to_link_rate(dpcd[1]);
