@@ -117,6 +117,7 @@ static void dp_aux_cfg(struct cdns_mhdp8501_device *mhdp)
 }
 
 /* PMA common configuration for 24MHz */
+#if 0
 static void dp_phy_pma_cmn_cfg_24mhz(struct cdns_mhdp8501_device *mhdp, unsigned int lanes)
 {
 	int k;
@@ -204,6 +205,7 @@ static void dp_phy_pma_cmn_pll0_24mhz(struct cdns_mhdp8501_device *mhdp, unsigne
 		cdns_mhdp_reg_write(&mhdp->mbox, (CDNS_AFE_TX_PSC_A3 | (k << 9)), 0x0098);
 	}
 }
+#endif
 
 /* PMA common configuration for 27MHz */
 static void dp_phy_pma_cmn_cfg_27mhz(struct cdns_mhdp8501_device *mhdp, int lanes)
@@ -470,8 +472,8 @@ static int dp_phy_power_up(struct cdns_mhdp8501_device *mhdp)
 static int cdns_afe_init(struct phy *phy)
 {
 	struct cdns_mhdp8501_device *mhdp = phy_get_drvdata(phy);
-printk("%s\n", __func__);
 	int ret;
+printk("%s\n", __func__);
 
 	reset_control_deassert(mhdp->phy_reset);
 
@@ -508,7 +510,7 @@ static int cdns_afe_exit(struct phy *phy)
 
 static int cdns_afe_power_on(struct phy *phy)
 {
-	struct cdns_mhdp8501_device *mhdp = phy_get_drvdata(phy);
+	//struct cdns_mhdp8501_device *mhdp = phy_get_drvdata(phy);
 printk("%s\n", __func__);
 
 	return 0;
@@ -516,7 +518,7 @@ printk("%s\n", __func__);
 
 static int cdns_afe_power_off(struct phy *phy)
 {
-	struct cdns_mhdp8501_device *mhdp = phy_get_drvdata(phy);
+	//struct cdns_mhdp8501_device *mhdp = phy_get_drvdata(phy);
 printk("%s\n", __func__);
 
 	return 0;

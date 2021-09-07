@@ -187,11 +187,11 @@ static void cdns_mhdp8501_enable(struct drm_bridge *bridge)
 	struct cdns_mhdp_link *link = &mhdp->link;
 	union phy_configure_opts phy_cfg;
 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
-	u32 resp, interval, interval_us;
-	u8 ext_cap_chk = 0;
-	unsigned int addr;
+	//u32 resp, interval, interval_us;
+	//u8 ext_cap_chk = 0;
+	//unsigned int addr;
 	int ret;
-	int err;
+	//int err;
 
 	//WARN_ON(!mutex_is_locked(&mhdp->link_mutex));
 
@@ -486,7 +486,7 @@ static int cdns_mhdp8501_probe(struct platform_device *pdev)
 	unsigned long rate;
 	struct clk *clk;
 	int ret;
-	int irq;
+	//int irq;
 
 	mhdp = devm_kzalloc(dev, sizeof(*mhdp), GFP_KERNEL);
 	if (!mhdp)
@@ -618,7 +618,7 @@ printk("%s:%d\n", __func__, __LINE__);
 phy_exit:
 	phy_exit(mhdp->phy);
 plat_fini:
-runtime_put:
+//runtime_put:
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
 clk_disable:
