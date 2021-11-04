@@ -111,7 +111,8 @@ static const struct flash_info winbond_nor_parts[] = {
 	{ "w25q128fw", INFO(0xef6018, 0, 64 * 1024, 256)
 		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB)
 		NO_SFDP_FLAGS(SECT_4K | SPI_NOR_DUAL_READ |
-			      SPI_NOR_QUAD_READ) },
+			      SPI_NOR_QUAD_READ)
+		OTP_INFO(256, 3, 0x1000, 0x1000) },
 	{ "w25q128jv", INFO(0xef7018, 0, 64 * 1024, 256)
 		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB)
 		NO_SFDP_FLAGS(SECT_4K | SPI_NOR_DUAL_READ |
