@@ -33,9 +33,17 @@ patternProperties:
 
     properties:
       compatible:
-        enum:
-          - user-otp
-          - factory-otp
+        oneOf:
+          - enum:
+              - user-otp
+              - factory-otp
+          - description:
+              NVMEM provider with non-trivial content which need post
+              processing.
+            items:
+              - enum:
+                  - kontron,sl28-vpd
+              - const: user-otp
 
     required:
       - compatible
