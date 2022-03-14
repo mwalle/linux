@@ -5,6 +5,7 @@
 
 /dts-v1/;
 #include "lan966x.dtsi"
+#include "dt-bindings/phy/phy-lan966x-serdes.h"
 
 / {
 	model = "Kontron KSwitch D10 MMT 6G-2GS";
@@ -71,6 +72,14 @@
 	};
 };
 
+&cuphy0 {
+	status = "okay";
+};
+
+&cuphy1 {
+	status = "okay";
+};
+
 &flx0 {
 	atmel,flexcom-mode = <ATMEL_FLEXCOM_MODE_USART>;
 	status = "okay";
@@ -116,11 +125,102 @@
 		pins = "GPIO_57", "GPIO_58";
 		function = "fc4_b";
 	};
+
+	miim_c_pins: miim-c-pins {
+		/* MDC, MDIO */
+		pins = "GPIO_59", "GPIO_60";
+		function = "miim_c";
+	};
 };
 
 &i2c4 {
 	pinctrl-0 = <&fc4_b_pins>;
 	pinctrl-names = "default";
+	status = "okay";
+};
+
+&mdio0 {
+	pinctrl-0 = <&miim_c_pins>;
+	pinctrl-names = "default";
+	reset-gpios = <&gpio 29 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	phy0: ethernet-phy@5 {
+		reg = <5>;
+	};
+
+	phy1: ethernet-phy@6 {
+		reg = <6>;
+	};
+
+	phy2: ethernet-phy@7 {
+		reg = <7>;
+	};
+
+	phy3: ethernet-phy@8 {
+		reg = <8>;
+	};
+};
+
+&mdio1 {
+	status = "okay";
+};
+
+&port0 {
+	phys = <&serdes 0 CU(0)>;
+	phy-handle = <&cuphy0>;
+	phy-mode = "gmii";
+	status = "okay";
+};
+
+&port1 {
+	phys = <&serdes 1 CU(1)>;
+	phy-handle = <&cuphy1>;
+	phy-mode = "gmii";
+	status = "okay";
+};
+
+&port2 {
+	phys = <&serdes 2 SERDES6G(0)>;
+	sfp = <&sfp0>;
+	managed = "in-band-status";
+	phy-mode = "sgmii";
+	status = "okay";
+};
+
+&port3 {
+	phys = <&serdes 3 SERDES6G(1)>;
+	sfp = <&sfp1>;
+	managed = "in-band-status";
+	phy-mode = "sgmii";
+	status = "okay";
+};
+
+&port4 {
+	phys = <&serdes 4 SERDES6G(2)>;
+	phy-handle = <&phy0>;
+	phy-mode = "qsgmii";
+	status = "okay";
+};
+
+&port5 {
+	phys = <&serdes 5 SERDES6G(2)>;
+	phy-handle = <&phy1>;
+	phy-mode = "qsgmii";
+	status = "okay";
+};
+
+&port6 {
+	phys = <&serdes 6 SERDES6G(2)>;
+	phy-handle = <&phy2>;
+	phy-mode = "qsgmii";
+	status = "okay";
+};
+
+&port7 {
+	phys = <&serdes 7 SERDES6G(2)>;
+	phy-handle = <&phy3>;
+	phy-mode = "qsgmii";
 	status = "okay";
 };
 
@@ -145,6 +245,10 @@
 	pinctrl-0 = <&fc3_b_pins>;
 	pinctrl-names = "default";
 	cs-gpios = <&gpio 46 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
+&switch {
 	status = "okay";
 };
 
