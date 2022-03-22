@@ -680,6 +680,28 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
 }
 EXPORT_SYMBOL(phy_device_create);
 
+static int mdiobus_probe_mmd_read(struct mii_bus *bus, int prtad, int devad,
+				  u16 regnum)
+{
+	int ret;
+
+	if (bus->probe_capabilities >= MDIOBUS_C45)
+		return mdiobus_c45_read(bus, prtad, devad, regnum);
+
+	mutex_lock(&bus->mdio_lock);
+
+	ret = __phy_mmd_indirect(bus, prtad, devad, regnum);
+	if (ret)
+		goto out;
+
+	ret = __mdiobus_read(bus, prtad, MII_MMD_DATA);
+
+out:
+	mutex_unlock(&bus->mdio_lock);
+
+	return ret;
+}
+
 /* phy_c45_probe_present - checks to see if a MMD is present in the package
  * @bus: the target MII bus
  * @prtad: PHY package address on the MII bus
@@ -695,7 +717,7 @@ static int phy_c45_probe_present(struct mii_bus *bus, int prtad, int devad)
 {
 	int stat2;
 
-	stat2 = mdiobus_c45_read(bus, prtad, devad, MDIO_STAT2);
+	stat2 = mdiobus_probe_mmd_read(bus, prtad, devad, MDIO_STAT2);
 	if (stat2 < 0)
 		return stat2;
 
@@ -718,12 +740,12 @@ static int get_phy_c45_devs_in_pkg(struct mii_bus *bus, int addr, int dev_addr,
 {
 	int phy_reg;
 
-	phy_reg = mdiobus_c45_read(bus, addr, dev_addr, MDIO_DEVS2);
+	phy_reg = mdiobus_probe_mmd_read(bus, addr, dev_addr, MDIO_DEVS2);
 	if (phy_reg < 0)
 		return -EIO;
 	*devices_in_package = phy_reg << 16;
 
-	phy_reg = mdiobus_c45_read(bus, addr, dev_addr, MDIO_DEVS1);
+	phy_reg = mdiobus_probe_mmd_read(bus, addr, dev_addr, MDIO_DEVS1);
 	if (phy_reg < 0)
 		return -EIO;
 	*devices_in_package |= phy_reg;
@@ -807,12 +829,12 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr,
 				continue;
 		}
 
-		phy_reg = mdiobus_c45_read(bus, addr, i, MII_PHYSID1);
+		phy_reg = mdiobus_probe_mmd_read(bus, addr, i, MII_PHYSID1);
 		if (phy_reg < 0)
 			return -EIO;
 		c45_ids->device_ids[i] = phy_reg << 16;
 
-		phy_reg = mdiobus_c45_read(bus, addr, i, MII_PHYSID2);
+		phy_reg = mdiobus_probe_mmd_read(bus, addr, i, MII_PHYSID2);
 		if (phy_reg < 0)
 			return -EIO;
 		c45_ids->device_ids[i] |= phy_reg;
