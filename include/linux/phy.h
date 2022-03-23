@@ -528,8 +528,9 @@ struct macsec_ops;
  * @mdio: MDIO bus this PHY is on
  * @drv: Pointer to the driver for this PHY instance
  * @phy_id: UID for this device found during discovery
- * @c45_ids: 802.3-c45 Device Identifiers if is_c45.
- * @is_c45:  Set to true if this PHY uses clause 45 addressing.
+ * @c45_ids: 802.3-c45 Device Identifiers if has_c45.
+ * @has_c45:  Set to true if this PHY has clause 45 address space.
+ * @c45_over_c22:  Set to true if c45-over-c22 addressing is used.
  * @is_internal: Set to true if this PHY is internal to a MAC.
  * @is_pseudo_fixed_link: Set to true if this PHY is an Ethernet switch, etc.
  * @is_gigabit_capable: Set to true if PHY supports 1000Mbps
@@ -615,7 +616,8 @@ struct phy_device {
 	u32 phy_id;
 
 	struct phy_c45_device_ids c45_ids;
-	unsigned is_c45:1;
+	unsigned has_c45:1;
+	unsigned c45_over_c22:1;
 	unsigned is_internal:1;
 	unsigned is_pseudo_fixed_link:1;
 	unsigned is_gigabit_capable:1;

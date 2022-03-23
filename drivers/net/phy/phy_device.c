@@ -498,7 +498,7 @@ static int phy_bus_match(struct device *dev, struct device_driver *drv)
 	if (phydrv->match_phy_device)
 		return phydrv->match_phy_device(phydev);
 
-	if (phydev->is_c45) {
+	if (phydev->has_c45) {
 		for (i = 1; i < num_ids; i++) {
 			if (phydev->c45_ids.device_ids[i] == 0xffffffff)
 				continue;
@@ -630,7 +630,24 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
 	dev->autoneg = AUTONEG_ENABLE;
 
 	dev->pma_extable = -ENODATA;
-	dev->is_c45 = is_c45;
+
+	/* Depending on the bus capabilities, we have to use C45-over-C22
+	 * register access. We have the following cases:
+	 *
+	 * 1) bus can only do c45.
+	 * 2) bus can only do c22.
+	 * 3) bus can do c22 and c45.
+	 *
+	 * 1) and 3) are easy, because we can just use c45 transfers. For 2) we
+	 * don't have any other choice but to use c22 transfers. Even if the
+	 * PHY wouldn't support it we cannot do any better.
+	 *
+	 * Set this for C22 PHYs, too, because the PHY driver might promote it
+	 * to C45.
+	 */
+	dev->c45_over_c22 = bus->read && !bus->read_c45;
+
+	dev->has_c45 = is_c45;
 	dev->phy_id = phy_id;
 	if (c45_ids)
 		dev->c45_ids = *c45_ids;
@@ -685,7 +702,7 @@ static int mdiobus_probe_mmd_read(struct mii_bus *bus, int prtad, int devad,
 {
 	int ret;
 
-	if (bus->probe_capabilities >= MDIOBUS_C45)
+	if (bus->read_c45)
 		return mdiobus_c45_read(bus, prtad, devad, regnum);
 
 	mutex_lock(&bus->mdio_lock);
@@ -1437,7 +1454,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
 	 * exist, and we should use the genphy driver.
 	 */
 	if (!d->driver) {
-		if (phydev->is_c45)
+		if (phydev->has_c45)
 			d->driver = &genphy_c45_driver.mdiodrv.driver;
 		else
 			d->driver = &genphy_driver.mdiodrv.driver;
@@ -3076,7 +3093,7 @@ static int phy_probe(struct device *dev)
 		linkmode_copy(phydev->supported, phydrv->features);
 	else if (phydrv->get_features)
 		err = phydrv->get_features(phydev);
-	else if (phydev->is_c45)
+	else if (phydev->has_c45)
 		err = genphy_c45_pma_read_abilities(phydev);
 	else
 		err = genphy_read_abilities(phydev);

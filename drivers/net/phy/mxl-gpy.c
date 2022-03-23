@@ -208,7 +208,8 @@ static int gpy_probe(struct phy_device *phydev)
 	int fw_version;
 	int ret;
 
-	if (!phydev->is_c45) {
+	if (!phydev->has_c45) {
+		phydev->has_c45 = true;
 		ret = phy_get_c45_ids(phydev);
 		if (ret < 0)
 			return ret;

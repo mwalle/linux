@@ -141,7 +141,7 @@ int phy_restart_aneg(struct phy_device *phydev)
 {
 	int ret;
 
-	if (phydev->is_c45 && !(phydev->c45_ids.devices_in_package & BIT(0)))
+	if (phydev->has_c45 && !(phydev->c45_ids.devices_in_package & BIT(0)))
 		ret = genphy_c45_restart_aneg(phydev);
 	else
 		ret = genphy_restart_aneg(phydev);
@@ -162,7 +162,7 @@ int phy_aneg_done(struct phy_device *phydev)
 {
 	if (phydev->drv && phydev->drv->aneg_done)
 		return phydev->drv->aneg_done(phydev);
-	else if (phydev->is_c45)
+	else if (phydev->has_c45)
 		return genphy_c45_aneg_done(phydev);
 	else
 		return genphy_aneg_done(phydev);
@@ -662,7 +662,7 @@ int phy_config_aneg(struct phy_device *phydev)
 	/* Clause 45 PHYs that don't implement Clause 22 registers are not
 	 * allowed to call genphy_config_aneg()
 	 */
-	if (phydev->is_c45 && !(phydev->c45_ids.devices_in_package & BIT(0)))
+	if (phydev->has_c45 && !(phydev->c45_ids.devices_in_package & BIT(0)))
 		return genphy_c45_config_aneg(phydev);
 
 	return genphy_config_aneg(phydev);

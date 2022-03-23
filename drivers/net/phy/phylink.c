@@ -1388,7 +1388,7 @@ static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy,
 	 * speeds. We really need to know which interface modes the PHY and
 	 * MAC supports to properly work out which linkmodes can be supported.
 	 */
-	if (phy->is_c45 &&
+	if (phy->has_c45 &&
 	    interface != PHY_INTERFACE_MODE_RXAUI &&
 	    interface != PHY_INTERFACE_MODE_XAUI &&
 	    interface != PHY_INTERFACE_MODE_USXGMII)
@@ -2324,7 +2324,7 @@ static int phylink_phy_read(struct phylink *pl, unsigned int phy_id,
 					reg);
 	}
 
-	if (phydev->is_c45) {
+	if (phydev->has_c45 && !phydev->c45_over_c22) {
 		switch (reg) {
 		case MII_BMCR:
 		case MII_BMSR:
@@ -2366,7 +2366,7 @@ static int phylink_phy_write(struct phylink *pl, unsigned int phy_id,
 					 reg, val);
 	}
 
-	if (phydev->is_c45) {
+	if (phydev->has_c45 && !phydev->c45_over_c22) {
 		switch (reg) {
 		case MII_BMCR:
 		case MII_BMSR:
@@ -2738,7 +2738,7 @@ static void phylink_sfp_link_up(void *upstream)
  */
 static bool phylink_phy_no_inband(struct phy_device *phy)
 {
-	return phy->is_c45 &&
+	return phy->has_c45 &&
 		(phy->c45_ids.device_ids[1] & 0xfffffff0) == 0xae025150;
 }
 

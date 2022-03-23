@@ -491,7 +491,7 @@ static int mv3310_probe(struct phy_device *phydev)
 	u32 mmd_mask = MDIO_DEVS_PMAPMD | MDIO_DEVS_AN;
 	int ret;
 
-	if (!phydev->is_c45 ||
+	if (!phydev->has_c45 ||
 	    (phydev->c45_ids.devices_in_package & mmd_mask) != mmd_mask)
 		return -ENODEV;
 

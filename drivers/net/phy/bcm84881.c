@@ -47,7 +47,7 @@ static int bcm84881_probe(struct phy_device *phydev)
 	/* This driver requires PMAPMD and AN blocks */
 	const u32 mmd_mask = MDIO_DEVS_PMAPMD | MDIO_DEVS_AN;
 
-	if (!phydev->is_c45 ||
+	if (!phydev->has_c45 ||
 	    (phydev->c45_ids.devices_in_package & mmd_mask) != mmd_mask)
 		return -ENODEV;
 
