@@ -491,19 +491,47 @@ int phy_speed_down_core(struct phy_device *phydev)
 	return 0;
 }
 
-static void mmd_phy_indirect(struct mii_bus *bus, int phy_addr, int devad,
-			     u16 regnum)
+static int mmd_phy_indirect(struct mii_bus *bus, int phy_addr, int devad,
+			    u16 regnum, bool check_rc)
 {
+	int ret;
+
 	/* Write the desired MMD Devad */
-	__mdiobus_write(bus, phy_addr, MII_MMD_CTRL, devad);
+	ret = __mdiobus_write(bus, phy_addr, MII_MMD_CTRL, devad);
+	if (check_rc && ret)
+		return ret;
 
 	/* Write the desired MMD register address */
-	__mdiobus_write(bus, phy_addr, MII_MMD_DATA, regnum);
+	ret = __mdiobus_write(bus, phy_addr, MII_MMD_DATA, regnum);
+	if (check_rc && ret)
+		return ret;
 
 	/* Select the Function : DATA with no post increment */
-	__mdiobus_write(bus, phy_addr, MII_MMD_CTRL,
-			devad | MII_MMD_CTRL_NOINCR);
+	ret = __mdiobus_write(bus, phy_addr, MII_MMD_CTRL,
+			      devad | MII_MMD_CTRL_NOINCR);
+	if (check_rc && ret)
+		return ret;
+
+	return 0;
 }
+
+/**
+ * __phy_mmd_indirect - prepare an indirect C45 register access
+ *
+ * @bus: the target MII bus
+ * @phy_addr: PHY address on the MII bus
+ * @devad: The target MMD (0..31)
+ * @regnum: The target register on the MMD (0..65535)
+ *
+ * Prepare an indirect C45 read or write transfer using the MII_MMD_CTRL and
+ * MII_MMD_DATA registers in C22 space.
+ */
+int __phy_mmd_indirect(struct mii_bus *bus, int phy_addr, int devad,
+		       u16 regnum)
+{
+	return mmd_phy_indirect(bus, phy_addr, devad, regnum, true);
+}
+EXPORT_SYMBOL(__phy_mmd_indirect);
 
 /**
  * __phy_read_mmd - Convenience function for reading a register
@@ -530,7 +558,7 @@ int __phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
 		struct mii_bus *bus = phydev->mdio.bus;
 		int phy_addr = phydev->mdio.addr;
 
-		mmd_phy_indirect(bus, phy_addr, devad, regnum);
+		mmd_phy_indirect(bus, phy_addr, devad, regnum, false);
 
 		/* Read the content of the MMD's selected register */
 		val = __mdiobus_read(bus, phy_addr, MII_MMD_DATA);
@@ -586,7 +614,7 @@ int __phy_write_mmd(struct phy_device *phydev, int devad, u32 regnum, u16 val)
 		struct mii_bus *bus = phydev->mdio.bus;
 		int phy_addr = phydev->mdio.addr;
 
-		mmd_phy_indirect(bus, phy_addr, devad, regnum);
+		mmd_phy_indirect(bus, phy_addr, devad, regnum, false);
 
 		/* Write the data into MMD's selected register */
 		__mdiobus_write(bus, phy_addr, MII_MMD_DATA, val);

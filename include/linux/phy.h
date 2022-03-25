@@ -1126,6 +1126,8 @@ int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum);
 	__ret; \
 })
 
+int __phy_mmd_indirect(struct mii_bus *bus, int phy_addr, int devad,
+		       u16 regnum);
 /*
  * __phy_read_mmd - Convenience function for reading a register
  * from an MMD on a given PHY.
