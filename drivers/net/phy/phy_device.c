@@ -1039,18 +1039,29 @@ void phy_device_remove(struct phy_device *phydev)
 EXPORT_SYMBOL(phy_device_remove);
 
 /**
- * phy_get_c45_ids - Read 802.3-c45 IDs for phy device.
- * @phydev: phy_device structure to read 802.3-c45 IDs
+ * phy_promote_to_c45 - Promote to a C45 PHY
+ * @phydev: phy_device structure
+ *
+ * If a PHY supports both C22 and C45 and it isn't specifically asked to probe
+ * as a C45 PHY it might be probed as a C22 PHY. The driver can call this
+ * function to promote a PHY from C22 to C45.
+ *
+ * Can also be called if a PHY is already a C45 one. In this case this does
+ * nothing.
  *
  * Returns zero on success, %-EIO on bus access error, or %-ENODEV if
  * the "devices in package" is invalid.
  */
-int phy_get_c45_ids(struct phy_device *phydev)
+int phy_promote_to_c45(struct phy_device *phydev)
 {
+	if (phydev->has_c45)
+		return 0;
+
+	phydev->has_c45 = true;
 	return get_phy_c45_ids(phydev->mdio.bus, phydev->mdio.addr,
 			       &phydev->c45_ids);
 }
-EXPORT_SYMBOL(phy_get_c45_ids);
+EXPORT_SYMBOL(phy_promote_to_c45);
 
 /**
  * phy_find_first - finds the first PHY device on the bus
