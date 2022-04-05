@@ -47,6 +47,9 @@
 };
 
 &gpio {
+	pinctrl-0 = <&phy_int_pins>;
+	pinctrl-names = "default";
+
 	fc3_b_pins: fc3-b-pins {
 		/* SCK, MISO, MOSI */
 		pins = "GPIO_51", "GPIO_52", "GPIO_53";
@@ -57,6 +60,12 @@
 		/* MDC, MDIO */
 		pins = "GPIO_59", "GPIO_60";
 		function = "miim_c";
+	};
+
+	phy_int_pins: phy-int-pins {
+		/* IRQ_IN5 */
+		pins = "GPIO_24";
+		function = "irq_in_c";
 	};
 
 	sgpio_a_pins: sgpio-a-pins {
@@ -93,21 +102,25 @@
 
 	phy4: ethernet-phy@5 {
 		reg = <5>;
+		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 		coma-mode-gpios = <&gpio 37 GPIO_OPEN_DRAIN>;
 	};
 
 	phy5: ethernet-phy@6 {
 		reg = <6>;
+		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 		coma-mode-gpios = <&gpio 37 GPIO_OPEN_DRAIN>;
 	};
 
 	phy6: ethernet-phy@7 {
 		reg = <7>;
+		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 		coma-mode-gpios = <&gpio 37 GPIO_OPEN_DRAIN>;
 	};
 
 	phy7: ethernet-phy@8 {
 		reg = <8>;
+		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 		coma-mode-gpios = <&gpio 37 GPIO_OPEN_DRAIN>;
 	};
 };
