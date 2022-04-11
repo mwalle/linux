@@ -276,6 +276,22 @@
 			clock-names = "aes_clk";
 		};
 
+		qspi1: spi@e0054000 {
+			compatible = "microchip,sama7g5-qspi";
+			reg = <0xe0054000 0x100>,
+			      <0x40000000 0x800000>;
+			reg-names = "qspi_base", "qspi_mmap";
+			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sys_clk>, <&clks GCK_ID_QSPI1>;
+			clock-names = "pclk", "gclk";
+			dmas = <&dma0 AT91_XDMAC_DT_PERID(16)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(15)>;
+			dma-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		flx2: flexcom@e0060000 {
 			compatible = "atmel,sama5d2-flexcom";
 			reg = <0xe0060000 0x100>;
@@ -467,6 +483,38 @@
 		cpu_ctrl: syscon@e00c0000 {
 			compatible = "microchip,lan966x-cpu-syscon", "syscon";
 			reg = <0xe00c0000 0x350>;
+		};
+
+		qspi0: spi@e0804000 {
+			compatible = "microchip,sama7g5-qspi";
+			reg = <0xe0804000 0x100>,
+			      <0x20000000 0x10000000>;
+			reg-names = "qspi_base", "qspi_mmap";
+			interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sys_clk>, <&clks GCK_ID_QSPI0>;
+			clock-names = "pclk", "gclk";
+			dmas = <&dma0 AT91_XDMAC_DT_PERID(1)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(0)>;
+			dma-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		qspi2: spi@e0834000 {
+			compatible = "microchip,sama7g5-qspi";
+			reg = <0xe0834000 0x100>,
+			      <0x30000000 0x10000000>;
+			reg-names = "qspi_base", "qspi_mmap";
+			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sys_clk>, <&clks GCK_ID_QSPI2>;
+			clock-names = "pclk", "gclk";
+			dmas = <&dma0 AT91_XDMAC_DT_PERID(18)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(17)>;
+			dma-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
 		};
 
 		can0: can@e081c000 {
