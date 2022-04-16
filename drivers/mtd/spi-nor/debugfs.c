@@ -218,6 +218,40 @@ static int spi_nor_capabilities_show(struct seq_file *s, void *data)
 }
 DEFINE_SHOW_ATTRIBUTE(spi_nor_capabilities);
 
+static int spi_nor_sr_get(void *data, u64 *val)
+{
+	struct spi_nor *nor = data;
+	int ret;
+	u8 sr;
+
+	ret = spi_nor_read_sr(nor, &sr);
+	if (ret)
+		return ret;
+
+	*val = sr;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(spi_nor_sr_fops, spi_nor_sr_get,
+			 NULL, "0x%02llx\n");
+
+static int spi_nor_sr2_get(void *data, u64 *val)
+{
+	struct spi_nor *nor = data;
+	int ret;
+	u8 sr2;
+
+	ret = spi_nor_read_cr(nor, &sr2);
+	if (ret)
+		return ret;
+
+	*val = sr2;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(spi_nor_sr2_fops, spi_nor_sr2_get,
+			 NULL, "0x%02llx\n");
+
 static void spi_nor_debugfs_unregister(void *data)
 {
 	struct spi_nor *nor = data;
@@ -246,4 +280,6 @@ void spi_nor_debugfs_register(struct spi_nor *nor)
 	debugfs_create_file("params", 0444, d, nor, &spi_nor_params_fops);
 	debugfs_create_file("capabilities", 0444, d, nor,
 			    &spi_nor_capabilities_fops);
+	debugfs_create_file("reg_sr", 0444, d, nor, &spi_nor_sr_fops);
+	debugfs_create_file("reg_sr2", 0444, d, nor, &spi_nor_sr2_fops);
 }
