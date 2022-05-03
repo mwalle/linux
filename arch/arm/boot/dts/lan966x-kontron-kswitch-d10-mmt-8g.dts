@@ -15,12 +15,10 @@
 &mdio0 {
 	phy2: ethernet-phy@3 {
 		reg = <3>;
-		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	phy3: ethernet-phy@4 {
 		reg = <4>;
-		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 	};
 };
 
