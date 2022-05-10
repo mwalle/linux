@@ -570,6 +570,15 @@ struct flash_info {
 			.n_regions = (_n_regions),			\
 		}
 
+#define SNOR_ID3(_jedec_id)						\
+		.id = {							\
+			((_jedec_id) >> 16) & 0xff,			\
+			((_jedec_id) >> 8) & 0xff,			\
+			(_jedec_id) & 0xff,				\
+			},						\
+		.id_len = 3,						\
+		.parse_sfdp = true
+
 #define PARSE_SFDP							\
 	.parse_sfdp = true
 
