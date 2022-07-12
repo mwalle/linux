@@ -54,6 +54,7 @@ void nxp_nci_fw_work_complete(struct nxp_nci_info *info, int result)
 	struct nxp_nci_fw_info *fw_info = &info->fw_info;
 	int r;
 
+	mutex_lock(&info->info_lock);
 	if (info->phy_ops->set_mode) {
 		r = info->phy_ops->set_mode(info->phy_id, NXP_NCI_MODE_COLD);
 		if (r < 0 && result == 0)
@@ -66,6 +67,7 @@ void nxp_nci_fw_work_complete(struct nxp_nci_info *info, int result)
 		release_firmware(fw_info->fw);
 		fw_info->fw = NULL;
 	}
+	mutex_unlock(&info->info_lock);
 
 	nfc_fw_download_done(info->ndev->nfc_dev, fw_info->name, (u32) -result);
 }
@@ -172,8 +174,6 @@ void nxp_nci_fw_work(struct work_struct *work)
 	fw_info = container_of(work, struct nxp_nci_fw_info, work);
 	info = container_of(fw_info, struct nxp_nci_info, fw_info);
 
-	mutex_lock(&info->info_lock);
-
 	r = fw_info->cmd_result;
 	if (r < 0)
 		goto exit_work;
@@ -190,7 +190,6 @@ void nxp_nci_fw_work(struct work_struct *work)
 exit_work:
 	if (r < 0 || fw_info->size == 0)
 		nxp_nci_fw_work_complete(info, r);
-	mutex_unlock(&info->info_lock);
 }
 
 int nxp_nci_fw_download(struct nci_dev *ndev, const char *firmware_name)
