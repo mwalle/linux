@@ -10,11 +10,11 @@
 
 static const struct flash_info intel_nor_parts[] = {
 	/* Intel/Numonyx -- xxxs33b */
-	{ "160s33b",  INFO(0x898911, 0, 64 * 1024,  32)
+	{ "160s33b",  INFO(0x898911, 0, 64 * 1024,  32),
 		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE) },
-	{ "320s33b",  INFO(0x898912, 0, 64 * 1024,  64)
+	{ "320s33b",  INFO(0x898912, 0, 64 * 1024,  64),
 		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE) },
-	{ "640s33b",  INFO(0x898913, 0, 64 * 1024, 128)
+	{ "640s33b",  INFO(0x898913, 0, 64 * 1024, 128),
 		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE) },
 };
 

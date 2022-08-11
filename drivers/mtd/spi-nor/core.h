@@ -539,7 +539,7 @@ struct flash_info {
 		.id_len = (!(_jedec_id) ? 0 : (3 + ((_ext_id) ? 2 : 0))),	\
 		.sector_size = (_sector_size),				\
 		.n_sectors = (_n_sectors),				\
-		.page_size = 256,					\
+		.page_size = 256
 
 #define INFO6(_jedec_id, _ext_id, _sector_size, _n_sectors)		\
 		.id = {							\
@@ -553,14 +553,14 @@ struct flash_info {
 		.id_len = 6,						\
 		.sector_size = (_sector_size),				\
 		.n_sectors = (_n_sectors),				\
-		.page_size = 256,					\
+		.page_size = 256
 
 #define CAT25_INFO(_sector_size, _n_sectors, _page_size, _addr_nbytes)	\
 		.sector_size = (_sector_size),				\
 		.n_sectors = (_n_sectors),				\
 		.page_size = (_page_size),				\
 		.addr_nbytes = (_addr_nbytes),				\
-		.flags = SPI_NOR_NO_ERASE | SPI_NOR_NO_FR,		\
+		.flags = SPI_NOR_NO_ERASE | SPI_NOR_NO_FR
 
 #define OTP_INFO(_len, _n_regions, _base, _offset)			\
 		.otp_org = {						\
@@ -568,22 +568,22 @@ struct flash_info {
 			.base = (_base),				\
 			.offset = (_offset),				\
 			.n_regions = (_n_regions),			\
-		},
+		}
 
 #define PARSE_SFDP							\
-	.parse_sfdp = true,						\
+	.parse_sfdp = true
 
 #define FLAGS(_flags)							\
-		.flags = (_flags),					\
+		.flags = (_flags)
 
 #define NO_SFDP_FLAGS(_no_sfdp_flags)					\
-		.no_sfdp_flags = (_no_sfdp_flags),			\
+		.no_sfdp_flags = (_no_sfdp_flags)
 
 #define FIXUP_FLAGS(_fixup_flags)					\
-		.fixup_flags = (_fixup_flags),				\
+		.fixup_flags = (_fixup_flags)
 
 #define MFR_FLAGS(_mfr_flags)						\
-		.mfr_flags = (_mfr_flags),				\
+		.mfr_flags = (_mfr_flags)
 
 /**
  * struct spi_nor_manufacturer - SPI NOR manufacturer object

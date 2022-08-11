@@ -10,14 +10,14 @@
 
 static const struct flash_info esmt_nor_parts[] = {
 	/* ESMT */
-	{ "f25l32pa", INFO(0x8c2016, 0, 64 * 1024, 64)
-		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE)
+	{ "f25l32pa", INFO(0x8c2016, 0, 64 * 1024, 64),
+		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE),
 		NO_SFDP_FLAGS(SECT_4K) },
-	{ "f25l32qa-2s", INFO(0x8c4116, 0, 64 * 1024, 64)
-		FLAGS(SPI_NOR_HAS_LOCK)
+	{ "f25l32qa-2s", INFO(0x8c4116, 0, 64 * 1024, 64),
+		FLAGS(SPI_NOR_HAS_LOCK),
 		NO_SFDP_FLAGS(SECT_4K) },
-	{ "f25l64qa", INFO(0x8c4117, 0, 64 * 1024, 128)
-		FLAGS(SPI_NOR_HAS_LOCK)
+	{ "f25l64qa", INFO(0x8c4117, 0, 64 * 1024, 128),
+		FLAGS(SPI_NOR_HAS_LOCK),
 		NO_SFDP_FLAGS(SECT_4K) },
 };
 
