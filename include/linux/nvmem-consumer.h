@@ -77,6 +77,7 @@ ssize_t nvmem_device_cell_read(struct nvmem_device *nvmem,
 			   struct nvmem_cell_info *info, void *buf);
 int nvmem_device_cell_write(struct nvmem_device *nvmem,
 			    struct nvmem_cell_info *info, void *buf);
+size_t nvmem_device_size(struct nvmem_device *nvmem);
 
 const char *nvmem_dev_name(struct nvmem_device *nvmem);
 
@@ -204,6 +205,11 @@ static inline int nvmem_device_write(struct nvmem_device *nvmem,
 				     void *buf)
 {
 	return -EOPNOTSUPP;
+}
+
+static inline size_t nvmem_device_size(struct nvmem_device *nvmem)
+{
+	return 0;
 }
 
 static inline const char *nvmem_dev_name(struct nvmem_device *nvmem)
