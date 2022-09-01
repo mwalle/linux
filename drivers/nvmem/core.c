@@ -1523,8 +1523,8 @@ static int __nvmem_cell_read(struct nvmem_device *nvmem,
 		nvmem_shift_read_buffer_in_place(cell, buf);
 
 	if (cell->read_post_process) {
-		rc = cell->read_post_process(nvmem->priv, id, index,
-					     cell->offset, buf, cell->bytes);
+		rc = cell->read_post_process(id, index, cell->offset, buf,
+					     cell->bytes);
 		if (rc)
 			return rc;
 	}
