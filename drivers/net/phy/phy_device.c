@@ -691,7 +691,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
 	 * driver will get bored and give up as soon as it finds that
 	 * there's no driver _already_ loaded.
 	 */
-	if (is_c45 && c45_ids) {
+	if (c45_ids) {
 		const int num_ids = ARRAY_SIZE(c45_ids->device_ids);
 		int i;
 
@@ -972,7 +972,8 @@ struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45)
 						 true, &c45_ids);
 	}
 
-	return phy_device_create(bus, addr, phy_id, is_c45, &c45_ids);
+	return phy_device_create(bus, addr, phy_id, is_c45,
+				 !is_c45 ? NULL : &c45_ids);
 }
 EXPORT_SYMBOL(get_phy_device);
 
