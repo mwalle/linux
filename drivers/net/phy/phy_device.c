@@ -718,6 +718,7 @@ EXPORT_SYMBOL(phy_device_create);
 /* phy_c45_probe_present - checks to see if a MMD is present in the package
  * @bus: the target MII bus
  * @prtad: PHY package address on the MII bus
+ * @mode: Transfer mode of the PHY
  * @devad: PHY device (MMD) address
  *
  * Read the MDIO_STAT2 register, and check whether a device is responding
@@ -726,11 +727,12 @@ EXPORT_SYMBOL(phy_device_create);
  * Returns: negative error number on bus access error, zero if no device
  * is responding, or positive if a device is present.
  */
-static int phy_c45_probe_present(struct mii_bus *bus, int prtad, int devad)
+static int phy_c45_probe_present(struct mii_bus *bus, int prtad,
+				 enum phy_transfer_mode mode, int devad)
 {
 	int stat2;
 
-	stat2 = mdiobus_c45_read(bus, prtad, devad, MDIO_STAT2);
+	stat2 = phy_mdiobus_read_mmd(bus, prtad, mode, devad, MDIO_STAT2);
 	if (stat2 < 0)
 		return stat2;
 
@@ -740,6 +742,7 @@ static int phy_c45_probe_present(struct mii_bus *bus, int prtad, int devad)
 /* get_phy_c45_devs_in_pkg - reads a MMD's devices in package registers.
  * @bus: the target MII bus
  * @addr: PHY address on the MII bus
+ * @mode: Transfer mode of the PHY
  * @dev_addr: MMD address in the PHY.
  * @devices_in_package: where to store the devices in package information.
  *
@@ -748,17 +751,18 @@ static int phy_c45_probe_present(struct mii_bus *bus, int prtad, int devad)
  *
  * Returns: 0 on success, -EIO on failure.
  */
-static int get_phy_c45_devs_in_pkg(struct mii_bus *bus, int addr, int dev_addr,
+static int get_phy_c45_devs_in_pkg(struct mii_bus *bus, int addr,
+				   enum phy_transfer_mode mode, int dev_addr,
 				   u32 *devices_in_package)
 {
 	int phy_reg;
 
-	phy_reg = mdiobus_c45_read(bus, addr, dev_addr, MDIO_DEVS2);
+	phy_reg = phy_mdiobus_read_mmd(bus, addr, mode, dev_addr, MDIO_DEVS2);
 	if (phy_reg < 0)
 		return -EIO;
 	*devices_in_package = phy_reg << 16;
 
-	phy_reg = mdiobus_c45_read(bus, addr, dev_addr, MDIO_DEVS1);
+	phy_reg = phy_mdiobus_read_mmd(bus, addr, mode, dev_addr, MDIO_DEVS1);
 	if (phy_reg < 0)
 		return -EIO;
 	*devices_in_package |= phy_reg;
@@ -770,6 +774,7 @@ static int get_phy_c45_devs_in_pkg(struct mii_bus *bus, int addr, int dev_addr,
  * get_phy_c45_ids - reads the specified addr for its 802.3-c45 IDs.
  * @bus: the target MII bus
  * @addr: PHY address on the MII bus
+ * @mode: Transfer mode of the PHY
  * @c45_ids: where to store the c45 ID information.
  *
  * Read the PHY "devices in package". If this appears to be valid, read
@@ -780,6 +785,7 @@ static int get_phy_c45_devs_in_pkg(struct mii_bus *bus, int addr, int dev_addr,
  * the "devices in package" is invalid.
  */
 static int get_phy_c45_ids(struct mii_bus *bus, int addr,
+			   enum phy_transfer_mode mode,
 			   struct phy_c45_device_ids *c45_ids)
 {
 	const int num_ids = ARRAY_SIZE(c45_ids->device_ids);
@@ -798,14 +804,15 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr,
 			 * Some PHYs (88x3310) vendor space is not IEEE802.3
 			 * compliant.
 			 */
-			ret = phy_c45_probe_present(bus, addr, i);
+			ret = phy_c45_probe_present(bus, addr, mode, i);
 			if (ret < 0)
 				return -EIO;
 
 			if (!ret)
 				continue;
 		}
-		phy_reg = get_phy_c45_devs_in_pkg(bus, addr, i, &devs_in_pkg);
+		phy_reg = get_phy_c45_devs_in_pkg(bus, addr, mode, i,
+						  &devs_in_pkg);
 		if (phy_reg < 0)
 			return -EIO;
 	}
@@ -815,7 +822,8 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr,
 		 * MMD 0, as some 10G PHYs have zero Devices In package,
 		 * e.g. Cortina CS4315/CS4340 PHY.
 		 */
-		phy_reg = get_phy_c45_devs_in_pkg(bus, addr, 0, &devs_in_pkg);
+		phy_reg = get_phy_c45_devs_in_pkg(bus, addr, mode, 0,
+						  &devs_in_pkg);
 		if (phy_reg < 0)
 			return -EIO;
 
@@ -834,7 +842,7 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr,
 			 * to ignore these if they do not contain IEEE 802.3
 			 * registers.
 			 */
-			ret = phy_c45_probe_present(bus, addr, i);
+			ret = phy_c45_probe_present(bus, addr, mode, i);
 			if (ret < 0)
 				return ret;
 
@@ -842,12 +850,14 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr,
 				continue;
 		}
 
-		phy_reg = mdiobus_c45_read(bus, addr, i, MII_PHYSID1);
+		phy_reg = phy_mdiobus_read_mmd(bus, addr, mode, i,
+					       MII_PHYSID1);
 		if (phy_reg < 0)
 			return -EIO;
 		c45_ids->device_ids[i] = phy_reg << 16;
 
-		phy_reg = mdiobus_c45_read(bus, addr, i, MII_PHYSID2);
+		phy_reg = phy_mdiobus_read_mmd(bus, addr, mode, i,
+					       MII_PHYSID2);
 		if (phy_reg < 0)
 			return -EIO;
 		c45_ids->device_ids[i] |= phy_reg;
@@ -926,7 +936,7 @@ EXPORT_SYMBOL(fwnode_get_phy_id);
  *		    struct
  * @bus: the target MII bus
  * @addr: PHY address on the MII bus
- * @mode: Access mode of the PHY
+ * @mode: Transfer mode of the PHY
  *
  * Probe for a PHY at @addr on @bus.
  *
@@ -936,6 +946,11 @@ EXPORT_SYMBOL(fwnode_get_phy_id);
  * When probing for a clause 45 PHY, read the "devices in package" registers.
  * If the "devices in package" appears valid, read the ID registers for each
  * MMD, allocate and return a &struct phy_device.
+ *
+ * When using %PHY_TRANSFER_C45_OVER_C22 as @mode care have to be taken to not
+ * access a non-PHY device as C45-over-C22 is a property of a PHY and not a
+ * generic MDIO device. As the access involves register writes, it may be
+ * destructive on non-PHY devices. IOW, it cannot be used for bus scanning.
  *
  * Returns an allocated &struct phy_device on success, %-ENODEV if there is
  * no PHY present, or %-EIO on bus access error.
@@ -956,7 +971,8 @@ struct phy_device *get_phy_device(struct mii_bus *bus, int addr,
 		r = get_phy_c22_id(bus, addr, &phy_id);
 		break;
 	case PHY_TRANSFER_C45:
-		r = get_phy_c45_ids(bus, addr, &c45_ids);
+	case PHY_TRANSFER_C45_OVER_C22:
+		r = get_phy_c45_ids(bus, addr, mode, &c45_ids);
 		break;
 	default:
 		return ERR_PTR(-EIO);
@@ -971,7 +987,7 @@ struct phy_device *get_phy_device(struct mii_bus *bus, int addr,
 	 * space, if successful, create the C45 PHY device.
 	 */
 	if (mode == PHY_TRANSFER_C22 && phy_id == 0 && bus->read_c45) {
-		r = get_phy_c45_ids(bus, addr, &c45_ids);
+		r = get_phy_c45_ids(bus, addr, PHY_TRANSFER_C45, &c45_ids);
 		if (!r)
 			return phy_device_create(bus, addr, phy_id,
 						 PHY_TRANSFER_C45, &c45_ids);
@@ -1053,7 +1069,7 @@ EXPORT_SYMBOL(phy_device_remove);
 int phy_get_c45_ids(struct phy_device *phydev)
 {
 	return get_phy_c45_ids(phydev->mdio.bus, phydev->mdio.addr,
-			       &phydev->c45_ids);
+			       PHY_TRANSFER_C45, &phydev->c45_ids);
 }
 EXPORT_SYMBOL(phy_get_c45_ids);
 

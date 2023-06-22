@@ -808,7 +808,13 @@ static inline bool phy_has_c22_registers(struct phy_device *phydev)
 
 static inline bool phy_supports_c45_transfers(struct phy_device *phydev)
 {
-	return phydev->transfer_mode == PHY_TRANSFER_C45;
+	switch (phydev->transfer_mode) {
+	case PHY_TRANSFER_C45:
+	case PHY_TRANSFER_C45_OVER_C22:
+		return true;
+	default:
+		return false;
+	}
 }
 
 /**
