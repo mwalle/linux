@@ -77,6 +77,8 @@ static int mscc_miim_status(struct mii_bus *bus)
 
 	ret = regmap_read(miim->regs,
 			  MSCC_MIIM_REG_STATUS + miim->mii_status_offset, &val);
+trace_printk("%s:%d status=%04x\n", __func__, __LINE__, val);
+
 	if (ret < 0) {
 		WARN_ONCE(1, "mscc miim status read error %d\n", ret);
 		return ret;
@@ -109,10 +111,12 @@ static int mscc_miim_read(struct mii_bus *bus, int mii_id, int regnum)
 	u32 val;
 	int ret;
 
+trace_printk("%s:%d\n", __func__, __LINE__);
 	ret = mscc_miim_wait_pending(bus);
 	if (ret)
 		goto out;
 
+trace_printk("%s:%d\n", __func__, __LINE__);
 	ret = regmap_write(miim->regs,
 			   MSCC_MIIM_REG_CMD + miim->mii_status_offset,
 			   MSCC_MIIM_CMD_VLD |
@@ -125,17 +129,22 @@ static int mscc_miim_read(struct mii_bus *bus, int mii_id, int regnum)
 		goto out;
 	}
 
+trace_printk("%s:%d\n", __func__, __LINE__);
 	ret = mscc_miim_wait_ready(bus);
 	if (ret)
 		goto out;
 
+	/* XXX */
+	mdelay(10);
+
+trace_printk("%s:%d\n", __func__, __LINE__);
 	ret = regmap_read(miim->regs,
 			  MSCC_MIIM_REG_DATA + miim->mii_status_offset, &val);
 	if (ret < 0) {
 		WARN_ONCE(1, "mscc miim read data reg error %d\n", ret);
 		goto out;
 	}
-
+trace_printk("%s:%d val=%04x\n", __func__, __LINE__, val);
 	if (!miim->ignore_read_errors && !!(val & MSCC_MIIM_DATA_ERROR)) {
 		ret = -EIO;
 		goto out;
@@ -152,10 +161,12 @@ static int mscc_miim_write(struct mii_bus *bus, int mii_id,
 	struct mscc_miim_dev *miim = bus->priv;
 	int ret;
 
+trace_printk("%s:%d\n", __func__, __LINE__);
 	ret = mscc_miim_wait_pending(bus);
 	if (ret < 0)
 		goto out;
 
+trace_printk("%s:%d\n", __func__, __LINE__);
 	ret = regmap_write(miim->regs,
 			   MSCC_MIIM_REG_CMD + miim->mii_status_offset,
 			   MSCC_MIIM_CMD_VLD |
@@ -164,6 +175,7 @@ static int mscc_miim_write(struct mii_bus *bus, int mii_id,
 			   (value << MSCC_MIIM_CMD_WRDATA_SHIFT) |
 			   MSCC_MIIM_CMD_OPR_WRITE);
 
+trace_printk("%s:%d\n", __func__, __LINE__);
 	if (ret < 0)
 		WARN_ONCE(1, "mscc miim write error %d\n", ret);
 out:
