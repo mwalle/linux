@@ -415,6 +415,9 @@ struct mii_bus {
 	/** @phy_ignore_ta_mask: PHY addresses to ignore the TA/read failure */
 	u32 phy_ignore_ta_mask;
 
+	/** @prevent_c45_access: Don't do any C45 transactions on the bus */
+	unsigned prevent_c45_access:1;
+
 	/**
 	 * @irq: An array of interrupts, each PHY's interrupt at the index
 	 * matching its address
@@ -466,6 +469,8 @@ static inline struct mii_bus *devm_mdiobus_alloc(struct device *dev)
 
 struct mii_bus *mdio_find_bus(const char *mdio_name);
 struct phy_device *mdiobus_scan_c22(struct mii_bus *bus, int addr);
+
+void mdiobus_scan_for_broken_c45_access(struct mii_bus *bus);
 
 #define PHY_INTERRUPT_DISABLED	false
 #define PHY_INTERRUPT_ENABLED	true

@@ -618,9 +618,9 @@ static int mdiobus_scan_bus_c45(struct mii_bus *bus)
  * stomping over the true devices reply, to performing a write to
  * themselves which was intended for another device. Now that C22
  * devices have been found, see if any of them are bad for C45, and if we
- * should skip the C45 scan.
+ * should prohibit any C45 transactions.
  */
-static bool mdiobus_prevent_c45_scan(struct mii_bus *bus)
+void mdiobus_scan_for_broken_c45_access(struct mii_bus *bus)
 {
 	int i;
 
@@ -633,11 +633,13 @@ static bool mdiobus_prevent_c45_scan(struct mii_bus *bus)
 			continue;
 		oui = phydev->phy_id >> 10;
 
-		if (oui == MICREL_OUI)
-			return true;
+		if (oui == MICREL_OUI) {
+			bus->prevent_c45_access = true;
+			break;
+		}
 	}
-	return false;
 }
+EXPORT_SYMBOL_GPL(mdiobus_scan_for_broken_c45_access);
 
 /**
  * __mdiobus_register - bring up all the PHYs on a given bus and attach them to bus
@@ -657,7 +659,6 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 {
 	struct mdio_device *mdiodev;
 	struct gpio_desc *gpiod;
-	bool prevent_c45_scan;
 	int i, err;
 
 	if (!bus || !bus->name)
@@ -729,9 +730,8 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 			goto error;
 	}
 
-	prevent_c45_scan = mdiobus_prevent_c45_scan(bus);
-
-	if (!prevent_c45_scan && bus->read_c45) {
+	mdiobus_scan_for_broken_c45_access(bus);
+	if (!bus->prevent_c45_access && bus->read_c45) {
 		err = mdiobus_scan_bus_c45(bus);
 		if (err)
 			goto error;
