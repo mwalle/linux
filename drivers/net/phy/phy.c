@@ -203,7 +203,7 @@ int phy_aneg_done(struct phy_device *phydev)
 {
 	if (phydev->drv && phydev->drv->aneg_done)
 		return phydev->drv->aneg_done(phydev);
-	else if (phydev->is_c45)
+	else if (phy_supports_c45_transfers(phydev))
 		return genphy_c45_aneg_done(phydev);
 	else
 		return genphy_aneg_done(phydev);

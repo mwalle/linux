@@ -916,7 +916,7 @@ static void hns_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
 					hns_nic_test_strs[MAC_INTERNALLOOP_MAC]);
 		ethtool_sprintf(&buff,
 				hns_nic_test_strs[MAC_INTERNALLOOP_SERDES]);
-		if ((netdev->phydev) && (!netdev->phydev->is_c45))
+		if (netdev->phydev && !phy_has_c45_registers(netdev->phydev))
 			ethtool_sprintf(&buff,
 					hns_nic_test_strs[MAC_INTERNALLOOP_PHY]);
 
@@ -976,7 +976,7 @@ static int hns_get_sset_count(struct net_device *netdev, int stringset)
 		if (priv->ae_handle->phy_if == PHY_INTERFACE_MODE_XGMII)
 			cnt--;
 
-		if ((!netdev->phydev) || (netdev->phydev->is_c45))
+		if (!netdev->phydev || phy_has_c45_registers(netdev->phydev))
 			cnt--;
 
 		return cnt;

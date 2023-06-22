@@ -786,6 +786,11 @@ static inline bool phy_has_c22_registers(struct phy_device *phydev)
 	return phydev->c45_ids.devices_in_package & BIT(0);
 }
 
+static inline bool phy_supports_c45_transfers(struct phy_device *phydev)
+{
+	return phydev->is_c45;
+}
+
 /**
  * struct phy_tdr_config - Configuration of a TDR raw test
  *

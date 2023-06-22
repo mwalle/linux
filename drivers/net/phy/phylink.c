@@ -1790,7 +1790,8 @@ static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy,
 	 * against all interface modes, which may lead to more ethtool link
 	 * modes being advertised than are actually supported.
 	 */
-	if (phy->is_c45 && config.rate_matching == RATE_MATCH_NONE &&
+	if (phy_supports_c45_transfers(phy) &&
+	    config.rate_matching == RATE_MATCH_NONE &&
 	    interface != PHY_INTERFACE_MODE_RXAUI &&
 	    interface != PHY_INTERFACE_MODE_XAUI &&
 	    interface != PHY_INTERFACE_MODE_USXGMII)
@@ -2764,7 +2765,7 @@ static int phylink_phy_read(struct phylink *pl, unsigned int phy_id,
 					reg);
 	}
 
-	if (phydev->is_c45) {
+	if (phy_supports_c45_transfers(phydev)) {
 		switch (reg) {
 		case MII_BMCR:
 		case MII_BMSR:
@@ -2806,7 +2807,7 @@ static int phylink_phy_write(struct phylink *pl, unsigned int phy_id,
 					 reg, val);
 	}
 
-	if (phydev->is_c45) {
+	if (phy_supports_c45_transfers(phydev)) {
 		switch (reg) {
 		case MII_BMCR:
 		case MII_BMSR:
