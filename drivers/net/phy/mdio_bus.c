@@ -622,10 +622,10 @@ static int mdiobus_scan_bus_c45(struct mii_bus *bus)
  */
 void mdiobus_scan_for_broken_c45_access(struct mii_bus *bus)
 {
+	struct phy_device *phydev;
 	int i;
 
 	for (i = 0; i < PHY_MAX_ADDR; i++) {
-		struct phy_device *phydev;
 		u32 oui;
 
 		phydev = mdiobus_get_phy(bus, i);
@@ -638,6 +638,11 @@ void mdiobus_scan_for_broken_c45_access(struct mii_bus *bus)
 			break;
 		}
 	}
+
+	if (phydev && bus->prevent_c45_access)
+		dev_dbg(&bus->dev,
+			"Detected broken PHY (ID %08lx). Disabling C45 bus transactions.\n",
+			(unsigned long)phydev->phy_id);
 }
 EXPORT_SYMBOL_GPL(mdiobus_scan_for_broken_c45_access);
 
