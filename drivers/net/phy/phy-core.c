@@ -548,6 +548,85 @@ static int mmd_phy_indirect(struct mii_bus *bus, int phy_addr, int devad,
 	return check_rc ? ret : 0;
 }
 
+static int __phy_mdiobus_read_mmd(struct mii_bus *bus, int phy_addr,
+				  enum phy_transfer_mode mode,
+				  int devad, u32 regnum, bool check_rc)
+{
+	int ret;
+
+	switch (mode) {
+	case PHY_TRANSFER_C22:
+		return -EINVAL;
+	case PHY_TRANSFER_C45:
+		return __mdiobus_c45_read(bus, phy_addr, devad, regnum);
+	case PHY_TRANSFER_C45_OVER_C22:
+		ret = mmd_phy_indirect(bus, phy_addr, devad, regnum, check_rc);
+		if (check_rc && ret)
+			return ret;
+
+		/* Read the content of the MMD's selected register */
+		return __mdiobus_read(bus, phy_addr, MII_MMD_DATA);
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+/**
+ * phy_mdiobus_read_mmd - low-level function for reading a c45 register
+ *
+ * @bus: the target MII bus
+ * @phy_addr: PHY address on the MII bus
+ * @mode: Access mode of the PHY
+ * @devad: The target MMD (0..31)
+ * @regnum: The target register on the MMD (0..65535)
+ *
+ * Similar to phy_read_mmd() except that it can be used without a phydev and
+ * operates on the MII bus.
+ */
+int phy_mdiobus_read_mmd(struct mii_bus *bus, int phy_addr,
+			 enum phy_transfer_mode mode,
+			 int devad, u32 regnum)
+{
+	int ret;
+
+	if (regnum > (u16)~0 || devad > 32)
+		return -EINVAL;
+
+	mutex_lock(&bus->mdio_lock);
+	ret = __phy_mdiobus_read_mmd(bus, phy_addr, mode, devad, regnum,
+				     false);
+	mutex_unlock(&bus->mdio_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(phy_mdiobus_read_mmd);
+
+static int __phy_mdiobus_write_mmd(struct mii_bus *bus, int phy_addr,
+				   enum phy_transfer_mode mode,
+				   int devad, u32 regnum, u16 val,
+				   bool check_rc)
+{
+	int ret;
+
+	switch (mode) {
+	case PHY_TRANSFER_C22:
+		return -EINVAL;
+	case PHY_TRANSFER_C45:
+		return __mdiobus_c45_write(bus, phy_addr, devad, regnum, val);
+	case PHY_TRANSFER_C45_OVER_C22:
+		ret = mmd_phy_indirect(bus, phy_addr, devad, regnum, check_rc);
+		if (check_rc && ret)
+			return ret;
+
+		/* Write the data into MMD's selected register */
+		ret = __mdiobus_write(bus, phy_addr, MII_MMD_DATA, val);
+
+		return check_rc ? ret : 0;
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
 /**
  * __phy_read_mmd - Convenience function for reading a register
  * from an MMD on a given PHY.
@@ -559,26 +638,28 @@ static int mmd_phy_indirect(struct mii_bus *bus, int phy_addr, int devad,
  */
 int __phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
 {
-	int val;
+	enum phy_transfer_mode mode = phydev->transfer_mode;
+	struct mii_bus *bus = phydev->mdio.bus;
+	int phy_addr = phydev->mdio.addr;
+	bool check_rc = true;
 
 	if (regnum > (u16)~0 || devad > 32)
 		return -EINVAL;
 
-	if (phydev->drv && phydev->drv->read_mmd) {
-		val = phydev->drv->read_mmd(phydev, devad, regnum);
-	} else if (phy_supports_c45_transfers(phydev)) {
-		val = __mdiobus_c45_read(phydev->mdio.bus, phydev->mdio.addr,
-					 devad, regnum);
-	} else {
-		struct mii_bus *bus = phydev->mdio.bus;
-		int phy_addr = phydev->mdio.addr;
+	if (phydev->drv && phydev->drv->read_mmd)
+		return phydev->drv->read_mmd(phydev, devad, regnum);
 
-		mmd_phy_indirect(bus, phy_addr, devad, regnum, false);
-
-		/* Read the content of the MMD's selected register */
-		val = __mdiobus_read(bus, phy_addr, MII_MMD_DATA);
+	/* C22 PHY drivers might use phy_read_mmd(). Map it to the actual
+	 * C45-over-C22 transfer mode. Due to legacy reasons we have to
+	 * ignore any errors.
+	 */
+	if (phydev->transfer_mode == PHY_TRANSFER_C22) {
+		mode = PHY_TRANSFER_C45_OVER_C22;
+		check_rc = false;
 	}
-	return val;
+
+	return __phy_mdiobus_read_mmd(bus, phy_addr, mode, devad, regnum,
+				      check_rc);
 }
 EXPORT_SYMBOL(__phy_read_mmd);
 
@@ -615,28 +696,25 @@ EXPORT_SYMBOL(phy_read_mmd);
  */
 int __phy_write_mmd(struct phy_device *phydev, int devad, u32 regnum, u16 val)
 {
-	int ret;
+	enum phy_transfer_mode mode = phydev->transfer_mode;
+	struct mii_bus *bus = phydev->mdio.bus;
+	int phy_addr = phydev->mdio.addr;
+	bool check_rc = true;
 
 	if (regnum > (u16)~0 || devad > 32)
 		return -EINVAL;
 
-	if (phydev->drv && phydev->drv->write_mmd) {
-		ret = phydev->drv->write_mmd(phydev, devad, regnum, val);
-	} else if (phy_supports_c45_transfers(phydev)) {
-		ret = __mdiobus_c45_write(phydev->mdio.bus, phydev->mdio.addr,
-					  devad, regnum, val);
-	} else {
-		struct mii_bus *bus = phydev->mdio.bus;
-		int phy_addr = phydev->mdio.addr;
+	if (phydev->drv && phydev->drv->write_mmd)
+		return phydev->drv->write_mmd(phydev, devad, regnum, val);
 
-		mmd_phy_indirect(bus, phy_addr, devad, regnum, false);
-
-		/* Write the data into MMD's selected register */
-		__mdiobus_write(bus, phy_addr, MII_MMD_DATA, val);
-
-		ret = 0;
+	/* see __phy_read_mmd() */
+	if (phydev->transfer_mode == PHY_TRANSFER_C22) {
+		mode = PHY_TRANSFER_C45_OVER_C22;
+		check_rc = false;
 	}
-	return ret;
+
+	return __phy_mdiobus_write_mmd(bus, phy_addr, mode, devad, regnum,
+				       val, check_rc);
 }
 EXPORT_SYMBOL(__phy_write_mmd);
 

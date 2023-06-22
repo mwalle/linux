@@ -546,10 +546,14 @@ struct macsec_ops;
  *
  * @PHY_TRANSFER_C22: use 802.3 c22 MDIO transactions
  * @PHY_TRANSFER_C45: use 802.3 c45 MDIO transactions
+ * @PHY_TRANSFER_C45_OVER_C22: indirectly access C45 registers by using by
+ *			       802.3 c22 MDIO transactions and registers
+ *			       13 and 14.
  */
 enum phy_transfer_mode {
 	PHY_TRANSFER_C22 = 22,
 	PHY_TRANSFER_C45 = 45,
+	PHY_TRANSFER_C45_OVER_C22 = 4522,
 };
 
 /**
@@ -1390,6 +1394,9 @@ int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum);
 	__ret; \
 })
 
+int phy_mdiobus_read_mmd(struct mii_bus *bus, int phy_addr,
+			 enum phy_transfer_mode mode,
+			 int devad, u32 regnum);
 /*
  * __phy_read_mmd - Convenience function for reading a register
  * from an MMD on a given PHY.
