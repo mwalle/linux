@@ -1967,7 +1967,7 @@ static int netsec_register_mdio(struct netsec_priv *priv, u32 phy_addr)
 			return ret;
 		}
 
-		priv->phydev = get_phy_device(bus, phy_addr, false);
+		priv->phydev = get_phy_device(bus, phy_addr, PHY_TRANSFER_C22);
 		if (IS_ERR(priv->phydev)) {
 			ret = PTR_ERR(priv->phydev);
 			dev_err(priv->dev, "get_phy_device err(%d)\n", ret);

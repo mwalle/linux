@@ -254,7 +254,7 @@ static struct phy_device *__fixed_phy_register(unsigned int irq,
 		return ERR_PTR(ret);
 	}
 
-	phy = get_phy_device(fmb->mii_bus, phy_addr, false);
+	phy = get_phy_device(fmb->mii_bus, phy_addr, PHY_TRANSFER_C22);
 	if (IS_ERR(phy)) {
 		fixed_phy_del(phy_addr);
 		return ERR_PTR(-EINVAL);

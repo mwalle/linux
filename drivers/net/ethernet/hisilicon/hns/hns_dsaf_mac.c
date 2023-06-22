@@ -687,9 +687,9 @@ static int
 hns_mac_register_phydev(struct mii_bus *mdio, struct hns_mac_cb *mac_cb,
 			u32 addr)
 {
+	enum phy_transfer_mode mode;
 	struct phy_device *phy;
 	const char *phy_type;
-	bool is_c45;
 	int rc;
 
 	rc = fwnode_property_read_string(mac_cb->fw_port,
@@ -698,13 +698,13 @@ hns_mac_register_phydev(struct mii_bus *mdio, struct hns_mac_cb *mac_cb,
 		return rc;
 
 	if (!strcmp(phy_type, phy_modes(PHY_INTERFACE_MODE_XGMII)))
-		is_c45 = true;
+		mode = PHY_TRANSFER_C45;
 	else if (!strcmp(phy_type, phy_modes(PHY_INTERFACE_MODE_SGMII)))
-		is_c45 = false;
+		mode = PHY_TRANSFER_C22;
 	else
 		return -ENODATA;
 
-	phy = get_phy_device(mdio, addr, is_c45);
+	phy = get_phy_device(mdio, addr, mode);
 	if (!phy || IS_ERR(phy))
 		return -EIO;
 

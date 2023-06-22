@@ -580,7 +580,8 @@ static void tja1102_p1_register(struct work_struct *work)
 		}
 
 		/* Real PHY ID of Port 1 is 0 */
-		phy = phy_device_create(bus, addr, PHY_ID_TJA1102, false, NULL);
+		phy = phy_device_create(bus, addr, PHY_ID_TJA1102,
+					PHY_TRANSFER_C22, NULL);
 		if (IS_ERR(phy)) {
 			dev_err(dev, "Can't create PHY device for Port 1: %i\n",
 				addr);

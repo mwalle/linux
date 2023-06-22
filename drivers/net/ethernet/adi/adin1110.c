@@ -1599,7 +1599,8 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 		netdev->priv_flags |= IFF_UNICAST_FLT;
 		netdev->features |= NETIF_F_NETNS_LOCAL;
 
-		port_priv->phydev = get_phy_device(priv->mii_bus, i + 1, false);
+		port_priv->phydev = get_phy_device(priv->mii_bus, i + 1,
+						   PHY_TRANSFER_C22);
 		if (IS_ERR(port_priv->phydev)) {
 			netdev_err(netdev, "Could not find PHY with device address: %d.\n", i);
 			return PTR_ERR(port_priv->phydev);

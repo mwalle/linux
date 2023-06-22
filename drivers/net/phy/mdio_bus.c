@@ -518,12 +518,13 @@ static int mdiobus_create_device(struct mii_bus *bus,
 	return ret;
 }
 
-static struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr, bool c45)
+static struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr,
+				       enum phy_transfer_mode mode)
 {
 	struct phy_device *phydev = ERR_PTR(-ENODEV);
 	int err;
 
-	phydev = get_phy_device(bus, addr, c45);
+	phydev = get_phy_device(bus, addr, mode);
 	if (IS_ERR(phydev))
 		return phydev;
 
@@ -555,7 +556,7 @@ static struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr, bool c45)
  */
 struct phy_device *mdiobus_scan_c22(struct mii_bus *bus, int addr)
 {
-	return mdiobus_scan(bus, addr, false);
+	return mdiobus_scan(bus, addr, PHY_TRANSFER_C22);
 }
 EXPORT_SYMBOL(mdiobus_scan_c22);
 
@@ -573,7 +574,7 @@ EXPORT_SYMBOL(mdiobus_scan_c22);
  */
 static struct phy_device *mdiobus_scan_c45(struct mii_bus *bus, int addr)
 {
-	return mdiobus_scan(bus, addr, true);
+	return mdiobus_scan(bus, addr, PHY_TRANSFER_C45);
 }
 
 static int mdiobus_scan_bus_c22(struct mii_bus *bus)

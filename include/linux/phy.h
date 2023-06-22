@@ -537,6 +537,17 @@ struct macsec_context;
 struct macsec_ops;
 
 /**
+ * enum phy_transfer_mode - PHY transfer mode definitions
+ *
+ * @PHY_TRANSFER_C22: use 802.3 c22 MDIO transactions
+ * @PHY_TRANSFER_C45: use 802.3 c45 MDIO transactions
+ */
+enum phy_transfer_mode {
+	PHY_TRANSFER_C22 = 22,
+	PHY_TRANSFER_C45 = 45,
+};
+
+/**
  * struct phy_device - An instance of a PHY
  *
  * @mdio: MDIO bus this PHY is on
@@ -544,8 +555,7 @@ struct macsec_ops;
  * @devlink: Create a link between phy dev and mac dev, if the external phy
  *           used by current mac interface is managed by another mac interface.
  * @phy_id: UID for this device found during discovery
- * @c45_ids: 802.3-c45 Device Identifiers if is_c45.
- * @is_c45:  Set to true if this PHY uses clause 45 addressing.
+ * @c45_ids: 802.3-c45 Device Identifiers if it's an C45 PHY.
  * @is_internal: Set to true if this PHY is internal to a MAC.
  * @is_pseudo_fixed_link: Set to true if this PHY is an Ethernet switch, etc.
  * @is_gigabit_capable: Set to true if PHY supports 1000Mbps
@@ -560,6 +570,7 @@ struct macsec_ops;
  * @wol_enabled: Set to true if the PHY or the attached MAC have Wake-on-LAN
  * 		 enabled.
  * @state: State of the PHY for management purposes
+ * @transfer_mode:  MDIO transfer mode of the PHY.
  * @dev_flags: Device-specific flags used by the PHY driver.
  *
  *      - Bits [15:0] are free to use by the PHY driver to communicate
@@ -643,7 +654,6 @@ struct phy_device {
 	u32 phy_id;
 
 	struct phy_c45_device_ids c45_ids;
-	unsigned is_c45:1;
 	unsigned is_internal:1;
 	unsigned is_pseudo_fixed_link:1;
 	unsigned is_gigabit_capable:1;
@@ -670,6 +680,7 @@ struct phy_device {
 	int rate_matching;
 
 	enum phy_state state;
+	enum phy_transfer_mode transfer_mode;
 
 	u32 dev_flags;
 
@@ -776,7 +787,7 @@ static inline bool phy_has_c22_registers(struct phy_device *phydev)
 	/* If we probed the PHY without clause 45 accesses, then by
 	 * definition, clause 22 registers must be present.
 	 */
-	if (!phydev->is_c45)
+	if (phydev->transfer_mode == PHY_TRANSFER_C22)
 		return true;
 
 	/* If we probed the PHY with clause 45 accesses, clause 22
@@ -788,7 +799,7 @@ static inline bool phy_has_c22_registers(struct phy_device *phydev)
 
 static inline bool phy_supports_c45_transfers(struct phy_device *phydev)
 {
-	return phydev->is_c45;
+	return phydev->transfer_mode == PHY_TRANSFER_C45;
 }
 
 /**
@@ -1677,7 +1688,7 @@ int phy_modify_paged(struct phy_device *phydev, int page, u32 regnum,
 		     u16 mask, u16 set);
 
 struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
-				     bool is_c45,
+				     enum phy_transfer_mode mode,
 				     struct phy_c45_device_ids *c45_ids);
 #if IS_ENABLED(CONFIG_PHYLIB)
 int fwnode_get_phy_id(struct fwnode_handle *fwnode, u32 *phy_id);
@@ -1685,7 +1696,8 @@ struct mdio_device *fwnode_mdio_find_device(struct fwnode_handle *fwnode);
 struct phy_device *fwnode_phy_find_device(struct fwnode_handle *phy_fwnode);
 struct phy_device *device_phy_find_device(struct device *dev);
 struct fwnode_handle *fwnode_get_phy_node(const struct fwnode_handle *fwnode);
-struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
+struct phy_device *get_phy_device(struct mii_bus *bus, int addr,
+				  enum phy_transfer_mode mode);
 int phy_device_register(struct phy_device *phy);
 void phy_device_free(struct phy_device *phydev);
 #else
@@ -1717,7 +1729,8 @@ struct fwnode_handle *fwnode_get_phy_node(struct fwnode_handle *fwnode)
 }
 
 static inline
-struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45)
+struct phy_device *get_phy_device(struct mii_bus *bus, int addr,
+				  enum phy_transfer_mode mode)
 {
 	return NULL;
 }

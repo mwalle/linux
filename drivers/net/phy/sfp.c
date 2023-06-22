@@ -1750,12 +1750,13 @@ static void sfp_sm_phy_detach(struct sfp *sfp)
 	sfp->mod_phy = NULL;
 }
 
-static int sfp_sm_probe_phy(struct sfp *sfp, int addr, bool is_c45)
+static int sfp_sm_probe_phy(struct sfp *sfp, int addr,
+			    enum phy_transfer_mode mode)
 {
 	struct phy_device *phy;
 	int err;
 
-	phy = get_phy_device(sfp->i2c_mii, addr, is_c45);
+	phy = get_phy_device(sfp->i2c_mii, addr, mode);
 	if (phy == ERR_PTR(-ENODEV))
 		return PTR_ERR(phy);
 	if (IS_ERR(phy)) {
@@ -1882,15 +1883,16 @@ static int sfp_sm_probe_for_phy(struct sfp *sfp)
 		break;
 
 	case MDIO_I2C_MARVELL_C22:
-		err = sfp_sm_probe_phy(sfp, SFP_PHY_ADDR, false);
+		err = sfp_sm_probe_phy(sfp, SFP_PHY_ADDR, PHY_TRANSFER_C22);
 		break;
 
 	case MDIO_I2C_C45:
-		err = sfp_sm_probe_phy(sfp, SFP_PHY_ADDR, true);
+		err = sfp_sm_probe_phy(sfp, SFP_PHY_ADDR, PHY_TRANSFER_C45);
 		break;
 
 	case MDIO_I2C_ROLLBALL:
-		err = sfp_sm_probe_phy(sfp, SFP_PHY_ADDR_ROLLBALL, true);
+		err = sfp_sm_probe_phy(sfp, SFP_PHY_ADDR_ROLLBALL,
+				       PHY_TRANSFER_C45);
 		break;
 	}
 

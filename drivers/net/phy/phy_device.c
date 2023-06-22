@@ -630,7 +630,7 @@ static int phy_request_driver_module(struct phy_device *dev, u32 phy_id)
 }
 
 struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
-				     bool is_c45,
+				     enum phy_transfer_mode mode,
 				     struct phy_c45_device_ids *c45_ids)
 {
 	struct phy_device *dev;
@@ -664,7 +664,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
 	dev->autoneg = AUTONEG_ENABLE;
 
 	dev->pma_extable = -ENODATA;
-	dev->is_c45 = is_c45;
+	dev->transfer_mode = mode;
 	dev->phy_id = phy_id;
 	if (c45_ids)
 		dev->c45_ids = *c45_ids;
@@ -926,7 +926,7 @@ EXPORT_SYMBOL(fwnode_get_phy_id);
  *		    struct
  * @bus: the target MII bus
  * @addr: PHY address on the MII bus
- * @is_c45: If true the PHY uses the 802.3 clause 45 protocol
+ * @mode: Access mode of the PHY
  *
  * Probe for a PHY at @addr on @bus.
  *
@@ -940,7 +940,8 @@ EXPORT_SYMBOL(fwnode_get_phy_id);
  * Returns an allocated &struct phy_device on success, %-ENODEV if there is
  * no PHY present, or %-EIO on bus access error.
  */
-struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45)
+struct phy_device *get_phy_device(struct mii_bus *bus, int addr,
+				  enum phy_transfer_mode mode)
 {
 	struct phy_c45_device_ids c45_ids;
 	u32 phy_id = 0;
@@ -950,10 +951,16 @@ struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45)
 	c45_ids.mmds_present = 0;
 	memset(c45_ids.device_ids, 0xff, sizeof(c45_ids.device_ids));
 
-	if (is_c45)
-		r = get_phy_c45_ids(bus, addr, &c45_ids);
-	else
+	switch (mode) {
+	case PHY_TRANSFER_C22:
 		r = get_phy_c22_id(bus, addr, &phy_id);
+		break;
+	case PHY_TRANSFER_C45:
+		r = get_phy_c45_ids(bus, addr, &c45_ids);
+		break;
+	default:
+		return ERR_PTR(-EIO);
+	}
 
 	if (r)
 		return ERR_PTR(r);
@@ -963,15 +970,15 @@ struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45)
 	 * probe with C45 to see if we're able to get a valid PHY ID in the C45
 	 * space, if successful, create the C45 PHY device.
 	 */
-	if (!is_c45 && phy_id == 0 && bus->read_c45) {
+	if (mode == PHY_TRANSFER_C22 && phy_id == 0 && bus->read_c45) {
 		r = get_phy_c45_ids(bus, addr, &c45_ids);
 		if (!r)
 			return phy_device_create(bus, addr, phy_id,
-						 true, &c45_ids);
+						 PHY_TRANSFER_C45, &c45_ids);
 	}
 
-	return phy_device_create(bus, addr, phy_id, is_c45,
-				 !is_c45 ? NULL : &c45_ids);
+	return phy_device_create(bus, addr, phy_id, mode,
+				 mode == PHY_TRANSFER_C22 ? NULL : &c45_ids);
 }
 EXPORT_SYMBOL(get_phy_device);
 
