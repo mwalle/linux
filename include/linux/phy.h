@@ -472,6 +472,11 @@ struct phy_device *mdiobus_scan_c22(struct mii_bus *bus, int addr);
 
 void mdiobus_scan_for_broken_c45_access(struct mii_bus *bus);
 
+static inline bool mdiobus_supports_c45(struct mii_bus *bus)
+{
+	return bus->read_c45 && !bus->prevent_c45_access;
+}
+
 #define PHY_INTERRUPT_DISABLED	false
 #define PHY_INTERRUPT_ENABLED	true
 
@@ -1761,7 +1766,7 @@ static inline int phy_device_register(struct phy_device *phy)
 static inline void phy_device_free(struct phy_device *phydev) { }
 #endif /* CONFIG_PHYLIB */
 void phy_device_remove(struct phy_device *phydev);
-int phy_get_c45_ids(struct phy_device *phydev);
+int phy_promote_to_c45(struct phy_device *phydev);
 int phy_init_hw(struct phy_device *phydev);
 int phy_suspend(struct phy_device *phydev);
 int phy_resume(struct phy_device *phydev);

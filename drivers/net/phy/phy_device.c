@@ -1060,18 +1060,42 @@ void phy_device_remove(struct phy_device *phydev)
 EXPORT_SYMBOL(phy_device_remove);
 
 /**
- * phy_get_c45_ids - Read 802.3-c45 IDs for phy device.
- * @phydev: phy_device structure to read 802.3-c45 IDs
+ * phy_promote_to_c45 - Promote to a C45 PHY
+ * @phydev: phy_device structure
+ *
+ * If a PHY supports both C22 and C45 register access and it isn't specifically
+ * asked to probe as a C45 PHY it might be probed as a C22 PHY. The driver can
+ * call this function to promote the PHY from C22 to C45.
+ *
+ * Can also be called if a PHY is already a C45 one. In that case it does
+ * nothing.
+ *
+ * If the bus isn't capable of doing C45 transfers, C45-over-C22 access will be
+ * used as a fallback.
  *
  * Returns zero on success, %-EIO on bus access error, or %-ENODEV if
  * the "devices in package" is invalid.
  */
-int phy_get_c45_ids(struct phy_device *phydev)
+int phy_promote_to_c45(struct phy_device *phydev)
 {
-	return get_phy_c45_ids(phydev->mdio.bus, phydev->mdio.addr,
-			       PHY_TRANSFER_C45, &phydev->c45_ids);
+	struct mii_bus *bus = phydev->mdio.bus;
+
+	if (phy_supports_c45_transfers(phydev))
+		return 0;
+
+	if (dev_of_node(&phydev->mdio.dev))
+		phydev_info(phydev,
+			    "Promoting PHY to a C45 one. Please consider using compatible=\"ethernet-phy-ieee802.3-c45\".");
+
+	if (mdiobus_supports_c45(bus))
+		phydev->transfer_mode = PHY_TRANSFER_C45;
+	else
+		phydev->transfer_mode = PHY_TRANSFER_C45_OVER_C22;
+
+	return get_phy_c45_ids(bus, phydev->mdio.addr, phydev->transfer_mode,
+			       &phydev->c45_ids);
 }
-EXPORT_SYMBOL(phy_get_c45_ids);
+EXPORT_SYMBOL(phy_promote_to_c45);
 
 /**
  * phy_find_first - finds the first PHY device on the bus
