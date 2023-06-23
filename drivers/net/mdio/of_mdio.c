@@ -100,6 +100,11 @@ static const struct of_device_id whitelist_phys[] = {
 	{}
 };
 
+static bool of_mdiobus_child_is_c45_phy(struct device_node *child)
+{
+	return of_device_is_compatible(child, "ethernet-phy-ieee802.3-c45");
+}
+
 /*
  * Return true if the child node is for a phy. It must either:
  * o Compatible string of "ethernet-phy-idX.X"
@@ -118,7 +123,7 @@ bool of_mdiobus_child_is_phy(struct device_node *child)
 	if (of_get_phy_id(child, &phy_id) != -EINVAL)
 		return true;
 
-	if (of_device_is_compatible(child, "ethernet-phy-ieee802.3-c45"))
+	if (of_mdiobus_child_is_c45_phy(child))
 		return true;
 
 	if (of_device_is_compatible(child, "ethernet-phy-ieee802.3-c22"))
@@ -137,6 +142,32 @@ bool of_mdiobus_child_is_phy(struct device_node *child)
 	return false;
 }
 EXPORT_SYMBOL(of_mdiobus_child_is_phy);
+
+static int of_mdiobus_register_child(struct mii_bus *mdio,
+				     struct device_node *child, bool *scanphys)
+{
+	int addr, rc;
+
+	addr = of_mdio_parse_addr(&mdio->dev, child);
+	if (addr < 0) {
+		*scanphys = true;
+		return 0;
+	}
+
+	if (mdiobus_is_registered_device(mdio, addr))
+		return 0;
+
+	if (of_mdiobus_child_is_phy(child))
+		rc = of_mdiobus_register_phy(mdio, child, addr);
+	else
+		rc = of_mdiobus_register_device(mdio, child, addr);
+
+	if (rc == -ENODEV)
+		dev_err(&mdio->dev, "MDIO device at address %d is missing.\n",
+			addr);
+
+	return rc;
+}
 
 /**
  * __of_mdiobus_register - Register mii_bus and create PHYs from the device tree
@@ -178,24 +209,26 @@ int __of_mdiobus_register(struct mii_bus *mdio, struct device_node *np,
 	if (rc)
 		return rc;
 
-	/* Loop over the child nodes and register a phy_device for each phy */
+	/* Loop over the child nodes, skipping C45 PHYs so we can scan for
+	 * broken C22 PHYs. The C45 PHYs will be registered afterwards.
+	 */
 	for_each_available_child_of_node(np, child) {
-		addr = of_mdio_parse_addr(&mdio->dev, child);
-		if (addr < 0) {
-			scanphys = true;
+		if (of_mdiobus_child_is_c45_phy(child))
 			continue;
-		}
+		rc = of_mdiobus_register_child(mdio, child, &scanphys);
+		if (rc)
+			goto unregister;
+	}
 
-		if (of_mdiobus_child_is_phy(child))
-			rc = of_mdiobus_register_phy(mdio, child, addr);
-		else
-			rc = of_mdiobus_register_device(mdio, child, addr);
+	/* Some C22 PHYs are broken with C45 transactions. */
+	mdiobus_scan_for_broken_c45_access(mdio);
 
-		if (rc == -ENODEV)
-			dev_err(&mdio->dev,
-				"MDIO device at address %d is missing.\n",
-				addr);
-		else if (rc)
+	/* Now add any missing C45 PHYs. If C45 access is not allowed, they
+	 * will be registered with C45-over-C22 access.
+	 */
+	for_each_available_child_of_node(np, child) {
+		rc = of_mdiobus_register_child(mdio, child, &scanphys);
+		if (rc)
 			goto unregister;
 	}
 
