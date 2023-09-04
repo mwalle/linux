@@ -771,6 +771,21 @@ static inline struct phy_device *to_phy_device(const struct device *dev)
 	return container_of(to_mdio_device(dev), struct phy_device, mdio);
 }
 
+static inline bool phy_has_c22_registers(struct phy_device *phydev)
+{
+	/* If we probed the PHY without clause 45 accesses, then by
+	 * definition, clause 22 registers must be present.
+	 */
+	if (!phydev->is_c45)
+		return true;
+
+	/* If we probed the PHY with clause 45 accesses, clause 22
+	 * registers may be present if bit 0 in the Devices-in-pacakge
+	 * register pair is set.
+	 */
+	return phydev->c45_ids.devices_in_package & BIT(0);
+}
+
 /**
  * struct phy_tdr_config - Configuration of a TDR raw test
  *
