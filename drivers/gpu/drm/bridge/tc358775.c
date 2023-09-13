@@ -518,13 +518,17 @@ static int tc358775_parse_dt(struct device_node *np, struct tc_data *tc)
 	if (endpoint) {
 		/* dsi0_out node */
 		parent = of_graph_get_remote_port_parent(endpoint);
-		of_node_put(endpoint);
-		if (parent) {
-			/* dsi0 port 1 */
+		/* dsi0 port 1 */
+		if (parent)
 			dsi_lanes = drm_of_get_data_lanes_count_ep(parent, 1, -1, 1, 4);
-			of_node_put(parent);
-		}
+		of_node_put(parent);
 	}
+
+	/* New binding, where the data-lanes is a property of our endpoint */
+	if (dsi_lanes < 0)
+		dsi_lanes = drm_of_get_data_lanes_count(endpoint, 1, 4);
+
+	of_node_put(endpoint);
 
 	if (dsi_lanes < 0)
 		return dsi_lanes;
