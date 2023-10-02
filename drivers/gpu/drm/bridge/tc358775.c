@@ -185,29 +185,8 @@ enum {
 
 #define L0EN BIT(1)
 
-#define TC358775_VPCTRL_VSDELAY__MASK	0x3FF00000
-#define TC358775_VPCTRL_VSDELAY__SHIFT	20
-static inline u32 TC358775_VPCTRL_VSDELAY(uint32_t val)
-{
-	return ((val) << TC358775_VPCTRL_VSDELAY__SHIFT) &
-			TC358775_VPCTRL_VSDELAY__MASK;
-}
-
-#define TC358775_VPCTRL_OPXLFMT__MASK	0x00000100
-#define TC358775_VPCTRL_OPXLFMT__SHIFT	8
-static inline u32 TC358775_VPCTRL_OPXLFMT(uint32_t val)
-{
-	return ((val) << TC358775_VPCTRL_OPXLFMT__SHIFT) &
-			TC358775_VPCTRL_OPXLFMT__MASK;
-}
-
-#define TC358775_VPCTRL_MSF__MASK	0x00000001
-#define TC358775_VPCTRL_MSF__SHIFT	0
-static inline u32 TC358775_VPCTRL_MSF(uint32_t val)
-{
-	return ((val) << TC358775_VPCTRL_MSF__SHIFT) &
-			TC358775_VPCTRL_MSF__MASK;
-}
+#define TC358775_VPCTRL_MSF	BIT(0)
+#define TC358775_VPCTRL_OPXLFMT	BIT(8)
 
 #define TC358775_LVCFG_PCLKDIV__MASK	0x000000f0
 #define TC358775_LVCFG_PCLKDIV__SHIFT	4
@@ -341,7 +320,6 @@ static void tc_bridge_enable(struct drm_bridge *bridge)
 	u32 hback_porch, hsync_len, hfront_porch, hactive, htime1, htime2;
 	u32 vback_porch, vsync_len, vfront_porch, vactive, vtime1, vtime2;
 	unsigned int val = 0;
-	u16 dsiclk, clkdiv, byteclk, t1, t2, t3, vsdelay;
 	struct drm_display_mode *mode;
 	struct drm_connector *connector = get_connector(bridge->encoder);
 
@@ -388,22 +366,11 @@ static void tc_bridge_enable(struct drm_bridge *bridge)
 	regmap_write(tc->regmap, DSI_STARTDSI, DSI_RX_START);
 
 	if (tc->bpc == 8)
-		val = TC358775_VPCTRL_OPXLFMT(1);
+		regmap_update_bits(tc->regmap, VPCTRL, TC358775_VPCTRL_OPXLFMT,
+				   TC358775_VPCTRL_OPXLFMT);
 	else /* bpc = 6; */
-		val = TC358775_VPCTRL_MSF(1);
-
-	dsiclk = mode->crtc_clock * 3 * tc->bpc / tc->num_dsi_lanes / 1000;
-	clkdiv = dsiclk / (tc->lvds_link == DUAL_LINK ? DIVIDE_BY_6 : DIVIDE_BY_3);
-	byteclk = dsiclk / 4;
-	t1 = hactive * (tc->bpc * 3 / 8) / tc->num_dsi_lanes;
-	t2 = ((100000 / clkdiv)) * (hactive + hback_porch + hsync_len + hfront_porch) / 1000;
-	t3 = ((t2 * byteclk) / 100) - (hactive * (tc->bpc * 3 / 8) /
-		tc->num_dsi_lanes);
-
-	vsdelay = (clkdiv * (t1 + t3) / byteclk) - hback_porch - hsync_len - hactive;
-
-	val |= TC358775_VPCTRL_VSDELAY(vsdelay);
-	regmap_write(tc->regmap, VPCTRL, val);
+		regmap_update_bits(tc->regmap, VPCTRL, TC358775_VPCTRL_MSF,
+				   TC358775_VPCTRL_MSF);
 
 	regmap_write(tc->regmap, HTIM1, htime1);
 	regmap_write(tc->regmap, VTIM1, vtime1);
