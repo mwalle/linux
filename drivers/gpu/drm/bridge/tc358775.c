@@ -209,6 +209,7 @@ struct tc_data {
 	struct gpio_desc	*reset_gpio;
 	struct gpio_desc	*stby_gpio;
 	bool			lvds_dual_link;
+	bool			powered;
 	u8			bpc;
 };
 
@@ -225,9 +226,8 @@ static inline struct tc_data *bridge_to_tc(struct drm_bridge *b)
 	return container_of(b, struct tc_data, bridge);
 }
 
-static void tc_bridge_pre_enable(struct drm_bridge *bridge)
+static void tc358775_power_up(struct tc_data *tc)
 {
-	struct tc_data *tc = bridge_to_tc(bridge);
 	struct device *dev = &tc->dsi->dev;
 	int ret;
 
@@ -248,9 +248,8 @@ static void tc_bridge_pre_enable(struct drm_bridge *bridge)
 	usleep_range(10, 20);
 }
 
-static void tc_bridge_post_disable(struct drm_bridge *bridge)
+static void tc358775_power_down(struct tc_data *tc)
 {
-	struct tc_data *tc = bridge_to_tc(bridge);
 	struct device *dev = &tc->dsi->dev;
 	int ret;
 
@@ -269,6 +268,20 @@ static void tc_bridge_post_disable(struct drm_bridge *bridge)
 	if (ret < 0)
 		dev_err(dev, "regulator vddio disable failed, %d\n", ret);
 	usleep_range(10000, 11000);
+}
+
+static void tc_bridge_pre_enable(struct drm_bridge *bridge)
+{
+	struct tc_data *tc = bridge_to_tc(bridge);
+
+	tc358775_power_up(tc);
+}
+
+static void tc_bridge_post_disable(struct drm_bridge *bridge)
+{
+	struct tc_data *tc = bridge_to_tc(bridge);
+
+	tc358775_power_down(tc);
 }
 
 /* helper function to access bus_formats */
