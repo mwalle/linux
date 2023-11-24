@@ -738,8 +738,6 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 	mtk_dsi_set_mode(dsi);
 	mtk_dsi_clk_hs_mode(dsi, 1);
 
-	mtk_dsi_start(dsi);
-
 	dsi->enabled = true;
 }
 
@@ -786,7 +784,7 @@ static void mtk_dsi_bridge_atomic_enable(struct drm_bridge *bridge,
 	if (dsi->refcount == 0)
 		return;
 
-	mtk_output_dsi_enable(dsi);
+	mtk_dsi_start(dsi);
 }
 
 static void mtk_dsi_bridge_atomic_pre_enable(struct drm_bridge *bridge,
@@ -798,6 +796,9 @@ static void mtk_dsi_bridge_atomic_pre_enable(struct drm_bridge *bridge,
 	ret = mtk_dsi_poweron(dsi);
 	if (ret < 0)
 		DRM_ERROR("failed to power on dsi\n");
+
+	/* Enter LP-11 state */
+	mtk_output_dsi_enable(dsi);
 }
 
 static void mtk_dsi_bridge_atomic_post_disable(struct drm_bridge *bridge,
